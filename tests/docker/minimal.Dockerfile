@@ -1,9 +1,14 @@
-FROM alpine:3.18
+FROM ubuntu:22.04
+
+# Prevent interactive prompts during package installation
+ENV DEBIAN_FRONTEND=noninteractive
 
 # Install only basic tools, no development tools
-RUN apk add --no-cache \
+RUN apt-get update && apt-get install -y \
     bash \
-    curl
+    curl \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
 # Create app directory
 WORKDIR /test_files
