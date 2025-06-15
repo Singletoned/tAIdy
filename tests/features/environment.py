@@ -27,16 +27,18 @@ def before_all(context):
     """Set up test environment before all scenarios."""
     logger.info("Initializing test environment")
     
-    # Initialize Docker manager
-    context.docker_manager = DockerManager()
+    # Initialize Docker manager (config.yaml is in parent directory)
+    context.docker_manager = DockerManager("config.yaml")
     
     # Initialize test state
     context.test_results = {}
     context.current_container = None
     context.current_environment = None
     
-    # Ensure CLI binary exists
-    cli_binary = os.path.abspath("lintair")
+    # Ensure CLI binary exists (check for Linux binary first)
+    linux_binary = os.path.abspath("../lintair-linux")
+    regular_binary = os.path.abspath("../lintair")
+    cli_binary = linux_binary if os.path.exists(linux_binary) else regular_binary
     if not os.path.exists(cli_binary):
         logger.error(f"CLI binary not found: {cli_binary}")
         logger.error("Please build the lintair binary first: go build -o lintair")
@@ -54,12 +56,25 @@ def before_scenario(context, scenario):
     context.test_files = []
     context.expected_files = []
     
-    # Extract environment from scenario tags
+    # Extract environment from scenario tags or feature tags
     environment = None
+    
+    # Check scenario tags first
+    logger.info(f"Scenario tags: {scenario.tags}")
     for tag in scenario.tags:
         if tag.startswith('env:'):
             environment = tag.split(':', 1)[1]
+            logger.info(f"Found environment tag in scenario: {environment}")
             break
+    
+    # If not found in scenario, check feature tags
+    if not environment and hasattr(scenario, 'feature') and hasattr(scenario.feature, 'tags'):
+        logger.info(f"Feature tags: {scenario.feature.tags}")
+        for tag in scenario.feature.tags:
+            if tag.startswith('env:'):
+                environment = tag.split(':', 1)[1]
+                logger.info(f"Found environment tag in feature: {environment}")
+                break
             
     if environment:
         context.current_environment = environment

@@ -40,6 +40,12 @@ class DockerManager:
         dockerfile_path = env_config['dockerfile']
         tag = env_config['tag']
         
+        # Handle relative paths when running from tests directory
+        if os.path.basename(os.getcwd()) == "tests":
+            # Remove "tests/" prefix if present since we're already in tests dir
+            if dockerfile_path.startswith("tests/"):
+                dockerfile_path = dockerfile_path[6:]
+        
         if not os.path.exists(dockerfile_path):
             raise FileNotFoundError(f"Dockerfile not found: {dockerfile_path}")
             
@@ -84,8 +90,20 @@ class DockerManager:
         tag = self.images[env_name]
         container_name = container_name or f"lintair-test-{env_name}-{int(time.time())}"
         
-        # Mount the CLI binary into the container
-        cli_binary_host = os.path.abspath("lintair")
+        # Mount the CLI binary into the container (look in parent directory if in tests/)
+        if os.path.basename(os.getcwd()) == "tests":
+            # Check for Linux binary first, then fallback to regular binary
+            linux_binary = os.path.abspath("../lintair-linux")
+            regular_binary = os.path.abspath("../lintair")
+            cli_binary_host = linux_binary if os.path.exists(linux_binary) else regular_binary
+            test_files_path = os.path.abspath("test_files")
+        else:
+            # Check for Linux binary first, then fallback to regular binary
+            linux_binary = os.path.abspath("lintair-linux")
+            regular_binary = os.path.abspath("lintair")
+            cli_binary_host = linux_binary if os.path.exists(linux_binary) else regular_binary
+            test_files_path = os.path.abspath("tests/test_files")
+            
         if not os.path.exists(cli_binary_host):
             raise FileNotFoundError(f"CLI binary not found: {cli_binary_host}")
             
@@ -94,7 +112,7 @@ class DockerManager:
                 'bind': self.config['testing']['cli']['binary_path'],
                 'mode': 'ro'
             },
-            os.path.abspath("tests/test_files"): {
+            test_files_path: {
                 'bind': '/test_files',
                 'mode': 'rw'
             }
@@ -126,20 +144,27 @@ class DockerManager:
             logger.error(f"Failed to start container {container_name}: {e}")
             raise
             
-    def _wait_for_container(self, container: docker.models.containers.Container, timeout: int = 10):
+    def _wait_for_container(self, container: docker.models.containers.Container, timeout: int = 30):
         """Wait for container to be ready."""
         start_time = time.time()
         while time.time() - start_time < timeout:
             container.reload()
+            logger.debug(f"Container {container.name} status: {container.status}")
             if container.status == 'running':
                 # Test if we can execute commands
                 try:
-                    result = container.exec_run("echo 'ready'", timeout=5)
+                    result = container.exec_run("echo 'ready'")
+                    logger.debug(f"Exec result: exit_code={result.exit_code}")
                     if result.exit_code == 0:
+                        logger.debug(f"Container {container.name} is ready")
                         return
-                except:
-                    pass
-            time.sleep(0.5)
+                except Exception as e:
+                    logger.debug(f"Container readiness check failed: {e}")
+            elif container.status in ['exited', 'dead']:
+                # Container failed to start
+                logs = container.logs().decode('utf-8') if hasattr(container, 'logs') else "No logs available"
+                raise RuntimeError(f"Container {container.name} failed to start. Status: {container.status}. Logs:\n{logs}")
+            time.sleep(1.0)
             
         raise TimeoutError(f"Container {container.name} not ready after {timeout}s")
         
@@ -167,8 +192,7 @@ class DockerManager:
                 detach=False,
                 stream=False,
                 socket=False,
-                demux=True,
-                timeout=timeout
+                demux=True
             )
             
             stdout = result.output[0].decode('utf-8') if result.output[0] else ""

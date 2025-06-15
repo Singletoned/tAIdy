@@ -31,8 +31,10 @@ def step_create_file(context, file_type):
     
     # Write file content to container
     if context.current_container:
-        # Write file directly in container
-        write_cmd = f"cat > {filename} << 'EOF'\n{content}\nEOF"
+        # Write file directly in container using printf to avoid HEREDOC issues
+        # Escape single quotes in content
+        escaped_content = content.replace("'", "'\"'\"'")
+        write_cmd = f"printf '%s' '{escaped_content}' > {filename}"
         result = context.docker_manager.execute_command(
             context.current_container.name,
             write_cmd
@@ -61,7 +63,9 @@ def step_create_multiple_files(context):
         
         # Write file content to container
         if context.current_container:
-            write_cmd = f"cat > {filename} << 'EOF'\n{content}\nEOF"
+            # Escape single quotes in content
+            escaped_content = content.replace("'", "'\"'\"'")
+            write_cmd = f"printf '%s' '{escaped_content}' > {filename}"
             result = context.docker_manager.execute_command(
                 context.current_container.name,
                 write_cmd
@@ -85,7 +89,7 @@ def step_verify_linter_installed(context, linter):
         raise Exception("No container available for testing")
         
     # Check if linter is available
-    check_cmd = f"which {linter} || command -v {linter}"
+    check_cmd = f"which {linter}"
     result = context.docker_manager.execute_command(
         context.current_container.name,
         check_cmd
@@ -102,7 +106,7 @@ def step_verify_linter_not_installed(context, linter):
         raise Exception("No container available for testing")
         
     # Check if linter is NOT available
-    check_cmd = f"which {linter} || command -v {linter}"
+    check_cmd = f"which {linter}"
     result = context.docker_manager.execute_command(
         context.current_container.name,
         check_cmd
