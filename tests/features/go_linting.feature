@@ -1,4 +1,4 @@
-@env:go121
+@env_go121
 Feature: Go file linting with gofmt
   As a developer
   I want lintair to automatically format Go files with gofmt

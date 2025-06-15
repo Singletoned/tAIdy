@@ -1,4 +1,4 @@
-@env:node18
+@env_node18
 Feature: CLI usage and error handling
   As a developer
   I want lintair to provide helpful usage information

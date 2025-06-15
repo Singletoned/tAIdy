@@ -1,4 +1,4 @@
-@env:python311
+@env_python311
 Feature: Python file linting with ruff
   As a developer
   I want lintair to automatically lint Python files with ruff

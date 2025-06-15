@@ -1,4 +1,4 @@
-@env:node18
+@env_node18
 Feature: JavaScript file linting with prettier
   As a developer
   I want lintair to automatically format JavaScript files with prettier

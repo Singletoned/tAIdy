@@ -1,4 +1,4 @@
-@env:minimal
+@env_minimal
 Feature: Handling unsupported environments
   As a developer
   I want lintair to handle missing linters gracefully
