@@ -68,10 +68,10 @@ func (dm *DockerManager) BuildImage(dockerFile, tag string) error {
 
 	// Copy lintair binary to build directory
 	// Try both relative and absolute paths
-	binaryPath := "../lintair-linux"
+	binaryPath := "../lintair"
 	if _, err := os.Stat(binaryPath); err != nil {
 		// Try from current working directory
-		binaryPath = "lintair-linux"
+		binaryPath = "lintair"
 	}
 	if _, err := os.Stat(binaryPath); err == nil {
 		binaryContent, err := os.ReadFile(binaryPath)
@@ -83,7 +83,7 @@ func (dm *DockerManager) BuildImage(dockerFile, tag string) error {
 			return fmt.Errorf("failed to write binary: %w", err)
 		}
 	} else {
-		log.Printf("Warning: lintair-linux binary not found at %s", binaryPath)
+		log.Printf("Warning: lintair binary not found at %s", binaryPath)
 	}
 
 	// Run docker build

@@ -13,20 +13,20 @@ nc := '\033[0m'
 # Default format for tests
 format := env_var_or_default('FORMAT', 'pretty')
 
-# Build the main binary
+# Build the main binary (same as Linux for consistency)
 build:
     @echo "{{blue}}[INFO]{{nc}} Building lintair binary..."
     go build -o lintair
     @echo "{{green}}[SUCCESS]{{nc}} Built lintair binary"
 
-# Build Linux binary for Docker containers
+# Build Linux binary for Docker containers (same as main binary)
 build-linux:
     @echo "{{blue}}[INFO]{{nc}} Building Linux binary for Docker containers..."
-    env GOOS=linux GOARCH=amd64 go build -o lintair-linux
-    @echo "{{green}}[SUCCESS]{{nc}} Built lintair-linux binary"
+    env GOOS=linux GOARCH=amd64 go build -o lintair
+    @echo "{{green}}[SUCCESS]{{nc}} Built lintair binary"
 
-# Build both binaries
-build-all: build build-linux
+# Build both binaries (now just one build)
+build-all: build
 
 # Check if Docker is running
 check-docker:
