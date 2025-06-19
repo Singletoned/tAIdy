@@ -20,6 +20,10 @@ RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash - \
 # Install prettier globally
 RUN npm install -g prettier@^3.0.0
 
+# Copy lintair binary
+COPY lintair /app/lintair
+RUN chmod +x /app/lintair
+
 # Create app directory
 WORKDIR /test_files
 

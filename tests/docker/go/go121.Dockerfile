@@ -22,6 +22,10 @@ ENV PATH=/usr/local/go/bin:$PATH
 ENV GOPATH=/go
 ENV GOROOT=/usr/local/go
 
+# Copy lintair binary
+COPY lintair /app/lintair
+RUN chmod +x /app/lintair
+
 # Create app directory
 WORKDIR /test_files
 

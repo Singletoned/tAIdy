@@ -67,7 +67,12 @@ func (dm *DockerManager) BuildImage(dockerFile, tag string) error {
 	}
 
 	// Copy lintair binary to build directory
+	// Try both relative and absolute paths
 	binaryPath := "../lintair-linux"
+	if _, err := os.Stat(binaryPath); err != nil {
+		// Try from current working directory
+		binaryPath = "lintair-linux"
+	}
 	if _, err := os.Stat(binaryPath); err == nil {
 		binaryContent, err := os.ReadFile(binaryPath)
 		if err != nil {

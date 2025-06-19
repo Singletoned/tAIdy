@@ -30,6 +30,10 @@ RUN ln -sf /usr/bin/python3.11 /usr/bin/python \
 # Install ruff using python3.11
 RUN python3.11 -m pip install --no-cache-dir ruff==0.1.6
 
+# Copy lintair binary
+COPY lintair /app/lintair
+RUN chmod +x /app/lintair
+
 # Create app directory
 WORKDIR /test_files
 

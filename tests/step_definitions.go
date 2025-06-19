@@ -127,8 +127,23 @@ func (tc *TestContext) theFollowingGoFileExists(docString *godog.DocString) erro
 }
 
 func (tc *TestContext) linterIsInstalled(linter string) error {
+	// Set up appropriate container based on linter
 	if tc.currentContainer == nil {
-		return fmt.Errorf("no container available for testing")
+		var environment string
+		switch linter {
+		case "ruff":
+			environment = "python311"
+		case "prettier":
+			environment = "node18"
+		case "gofmt":
+			environment = "go121"
+		default:
+			environment = "minimal"
+		}
+		
+		if err := tc.SetupContainer(environment); err != nil {
+			return err
+		}
 	}
 
 	if !tc.currentContainer.VerifyLinterInstalled(linter) {

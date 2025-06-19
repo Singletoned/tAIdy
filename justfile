@@ -38,28 +38,28 @@ check-docker:
 
 # Run BDD tests with default format
 test: build-linux check-docker
-    @echo "{{blue}}[INFO]{{nc}} Running BDD tests with {{format}} format..."
-    cd tests && go run . --godog.format={{format}}
+    @echo "{{blue}}[INFO]{{nc}} Running BDD tests..."
+    cd tests && go run .
 
-# Run BDD tests with pretty format
+# Run BDD tests with pretty format (same as default)
 test-pretty: build-linux check-docker
-    @echo "{{blue}}[INFO]{{nc}} Running BDD tests with pretty format..."
-    cd tests && go run . --godog.format=pretty
+    @echo "{{blue}}[INFO]{{nc}} Running BDD tests..."
+    cd tests && go run .
 
-# Run BDD tests with progress format
+# Run BDD tests with progress format (same as default for now)
 test-progress: build-linux check-docker
-    @echo "{{blue}}[INFO]{{nc}} Running BDD tests with progress format..."
-    cd tests && go run . --godog.format=progress
+    @echo "{{blue}}[INFO]{{nc}} Running BDD tests..."
+    cd tests && go run .
 
-# Run BDD tests with JSON format
+# Run BDD tests with JSON format (same as default for now)
 test-json: build-linux check-docker
-    @echo "{{blue}}[INFO]{{nc}} Running BDD tests with JSON format..."
-    cd tests && go run . --godog.format=json
+    @echo "{{blue}}[INFO]{{nc}} Running BDD tests..."
+    cd tests && go run .
 
 # Run specific feature file
 test-feature feature: build-linux check-docker
     @echo "{{blue}}[INFO]{{nc}} Running feature: {{feature}}"
-    cd tests && go run . --godog.format={{format}} {{feature}}
+    cd tests && go run . {{feature}}
 
 # Build test binary
 build-tests: build-linux
@@ -70,7 +70,7 @@ build-tests: build-linux
 # Run tests using built binary
 run-tests: build-tests check-docker
     @echo "{{blue}}[INFO]{{nc}} Running tests using built binary..."
-    cd tests && ./lintair-tests --godog.format={{format}}
+    cd tests && ./lintair-tests
 
 # Install test dependencies
 deps:
@@ -118,10 +118,10 @@ check: fmt lint test-pretty
 list:
     @just --list
 
-# Quick test with specific format
+# Quick test with specific format (formats not working yet)
 test-with format: build-linux check-docker
-    @echo "{{blue}}[INFO]{{nc}} Running BDD tests with {{format}} format..."
-    cd tests && go run . --godog.format={{format}}
+    @echo "{{blue}}[INFO]{{nc}} Running BDD tests..."
+    cd tests && go run .
 
 # Watch and run tests on file changes (requires watchexec)
 watch:

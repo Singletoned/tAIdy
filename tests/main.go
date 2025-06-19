@@ -19,7 +19,7 @@ var opts = godog.Options{
 }
 
 func init() {
-	godog.BindCommandLineFlags("godog.", &opts)
+	godog.BindCommandLineFlags("", &opts)
 }
 
 func InitializeTestSuite(ctx *godog.TestSuiteContext) {

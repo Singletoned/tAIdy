@@ -10,6 +10,10 @@ RUN apt-get update && apt-get install -y \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
+# Copy lintair binary
+COPY lintair /app/lintair
+RUN chmod +x /app/lintair
+
 # Create app directory
 WORKDIR /test_files
 
