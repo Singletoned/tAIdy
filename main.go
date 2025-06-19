@@ -38,6 +38,12 @@ func main() {
 	linterGroups := make(map[string][]string)
 	
 	for _, file := range files {
+		// Check if file exists
+		if _, err := os.Stat(file); os.IsNotExist(err) {
+			fmt.Printf("Warning: File %s does not exist, skipping\n", file)
+			continue
+		}
+		
 		ext := strings.ToLower(filepath.Ext(file))
 		if linterCmd, exists := linterMap[ext]; exists {
 			linterKey := strings.Join(linterCmd, " ")
@@ -45,6 +51,12 @@ func main() {
 		} else {
 			fmt.Printf("Warning: No linter configured for file %s (extension: %s)\n", file, ext)
 		}
+	}
+	
+	// Check if any files will be linted
+	if len(linterGroups) == 0 {
+		fmt.Println("No supported files provided, no files were linted")
+		os.Exit(0)
 	}
 	
 	// Execute each linter with its respective files

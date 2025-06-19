@@ -1,29 +1,23 @@
-# LintAir BDD Testing Framework
+# LintAir BDD Testing Framework with Godog
 
-A comprehensive BDD testing framework for CLI applications using Python, behave, and Docker. This framework enables testing of your CLI app across different software installation scenarios by spinning up isolated Docker containers.
+A comprehensive BDD testing framework for CLI applications using Go, Godog, and Docker. This framework enables testing of your CLI app across different software installation scenarios by spinning up isolated Docker containers.
 
 ## Features
 
-- **BDD Testing with Gherkin**: Write tests in natural language using behave
+- **BDD Testing with Gherkin**: Write tests in natural language using Godog
 - **Docker Integration**: Each test scenario runs in a fresh, isolated container
 - **Multiple Environments**: Test against different software environments (Node.js, Python, Go, etc.)
 - **Container Lifecycle Management**: Automatic container creation, execution, and cleanup
 - **CLI Testing**: Execute CLI commands inside containers with full output capture
-- **Comprehensive Reporting**: Detailed test results with container logs on failures
+- **Native Go Integration**: Built with Go for better integration with the main application
 
 ## Project Structure
 
 ```
 tests/
 ├── features/                    # Gherkin feature files
-│   ├── steps/                  # Step definitions
-│   │   └── cli_steps.py
-│   ├── environment.py          # Behave hooks and setup
-│   ├── python_linting.feature  # Python-specific tests
-│   ├── javascript_linting.feature
-│   ├── go_linting.feature
-│   ├── unsupported_environments.feature
-│   └── cli_usage.feature
+│   ├── cli_usage.feature       # CLI usage and error handling tests
+│   └── python.feature          # Python-specific formatting tests
 ├── docker/                     # Dockerfiles for test environments
 │   ├── js/
 │   │   └── node18.Dockerfile
@@ -33,14 +27,11 @@ tests/
 │   │   └── go121.Dockerfile
 │   └── minimal.Dockerfile
 ├── test_files/                 # Sample files for testing
-│   ├── sample.py
-│   ├── sample.js
-│   ├── sample.go
-│   ├── sample.json
-│   └── sample.css
-├── config.yaml                 # Test configuration
-├── docker_manager.py          # Docker container management
-├── requirements.txt           # Python dependencies
+├── main.go                     # Godog test runner
+├── step_definitions.go         # Step definitions implementation
+├── docker_manager.go          # Docker container management
+├── go.mod                      # Go module dependencies
+├── config.yaml                # Test environment configuration
 └── README.md                  # This file
 ```
 
@@ -49,98 +40,103 @@ tests/
 1. **Install Dependencies**:
    ```bash
    cd tests
-   pip install -r requirements.txt
+   go mod tidy
    ```
 
 2. **Install Docker**: Make sure Docker is installed and running on your system.
 
 3. **Build CLI Binary**: Ensure your CLI binary is built:
    ```bash
+   cd ..
    go build -o lintair
-   ```
-
-## Configuration
-
-The framework is configured via `config.yaml`. Key settings include:
-
-- **Docker Settings**: Container cleanup policy, timeouts, network mode
-- **CLI Settings**: Binary path, default timeout
-- **Test Environments**: Available Docker environments with their Dockerfiles
-- **Logging**: Log levels and container log capture
-
-## Test Environments
-
-### Available Environments
-
-- **node18**: Node.js 18 with npm and prettier
-- **python311**: Python 3.11 with pip and ruff  
-- **go121**: Go 1.21 with gofmt
-- **minimal**: Minimal Alpine Linux without dev tools
-
-### Adding New Environments
-
-1. Create a new Dockerfile in `tests/docker/`
-2. Add the environment to `config.yaml`:
-   ```yaml
-   environments:
-     myenv:
-       dockerfile: "tests/docker/myenv.Dockerfile"
-       tag: "lintair-test:myenv"
-       description: "My custom environment"
+   # For container testing, also build Linux version
+   GOOS=linux GOARCH=amd64 go build -o lintair-linux
    ```
 
 ## Running Tests
 
-### Run All Tests
+### Using Go Run
+
 ```bash
-cd tests
-behave
+# Run all tests
+go run .
+
+# Run with verbose output
+go run . --godog.format=pretty
+
+# Run specific feature
+go run . features/cli_usage.feature
+
+# Show available options
+go run . -h
 ```
 
-### Run Specific Feature
+### Building and Running
+
 ```bash
-behave features/python_linting.feature
+# Build the test binary
+go build -o lintair-tests
+
+# Run all tests
+./lintair-tests
+
+# Run with different format
+./lintair-tests --godog.format=progress
 ```
 
-### Run Tests with Specific Tags
-```bash
-behave --tags=env:python311
-```
+## Configuration
 
-### Verbose Output
-```bash
-behave --verbose --capture=no
-```
+The framework is configured via:
+
+- **config.yaml**: Docker environments and CLI settings
+- **go.mod**: Go dependencies
+
+### Test Environments
+
+#### Available Environments
+
+- **python311**: Ubuntu 22.04 with Python 3.11, pip and ruff
+- **node18**: Ubuntu 22.04 with Node.js 18, npm and prettier
+- **go121**: Ubuntu 22.04 with Go 1.21 and gofmt
+- **minimal**: Minimal Ubuntu 22.04 without dev tools
+
+#### Adding New Environments
+
+1. Create a new Dockerfile in `docker/`
+2. Add the environment to the `environments` map in `step_definitions.go`
+3. Create corresponding step definitions if needed
 
 ## Writing Tests
 
 ### Feature Files
 
-Feature files use Gherkin syntax and should specify the environment using tags:
+Feature files use standard Gherkin syntax:
 
 ```gherkin
-@env:python311
-Feature: Python file linting with ruff
+Feature: Python file formatting with ruff
   As a developer
-  I want lintair to automatically lint Python files with ruff
+  I want lintair to automatically format Python files with ruff
   So that my Python code follows consistent style guidelines
 
-  Scenario: Single Python file gets linted with ruff
+  Scenario: Single Python file gets formatted with ruff
     Given the following Python file exists:
-      '''
+      """
       def hello():
           print("Hello, World!")
-      '''
-    When lintair is called with Python filenames
-    Then the exit code should be 0
-    And the ruff command should be executed
+      """
+    When ruff is installed
+    And lintair is called with Python filenames
+    Then those files get formatted
 ```
 
 ### Available Step Definitions
 
+The framework provides comprehensive step definitions:
+
 #### File Management
-- `Given the following {file_type} file exists:`
-- `Given the following files exist:`
+- `Given the following Python file exists:`
+- `Given the following JavaScript file exists:`
+- `Given the following Go file exists:`
 
 #### Environment Checks
 - `Given {linter} is installed`
@@ -150,119 +146,182 @@ Feature: Python file linting with ruff
 - `When lintair is called with {file_pattern} filenames`
 - `When lintair is called with the files`
 - `When lintair is called with no arguments`
+- `When lintair is called with files that don't exist`
 
 #### Assertions
-- `Then the exit code should be {expected_code:d}`
-- `Then the output should contain "{expected_text}"`
-- `Then the output should not contain "{unexpected_text}"`
+- `Then the exit code should be {code}`
+- `Then the output should contain "{text}"`
+- `Then the output should not contain "{text}"`
 - `Then the output should match the pattern "{pattern}"`
 - `Then the {linter} command should be executed`
 - `Then the {linter} command should not be executed`
+- `Then those files get formatted`
 - `Then those files get linted`
 - `Then a warning should be shown for unsupported files`
 
-## Docker Container Management
+## Container Management
 
-The `DockerManager` class handles all container operations:
+The framework automatically manages Docker containers:
 
-- **Image Building**: Builds Docker images from Dockerfiles
-- **Container Lifecycle**: Starts, monitors, and stops containers
-- **Command Execution**: Runs CLI commands inside containers
-- **Volume Mounting**: Mounts CLI binary and test files
-- **Log Capture**: Captures container logs for debugging
+- **Automatic Build**: Images are built automatically if they don't exist
+- **Isolation**: Each scenario runs in a fresh container
+- **Cleanup**: Containers are automatically stopped and removed after tests
+- **File Management**: Test files are created inside containers dynamically
+
+## Godog Integration Benefits
+
+### Native Go Support
+- Full integration with Go toolchain
+- No dependency on Python or virtual environments
+- Better performance and resource usage
+
+### Rich Testing Features
+- Scenario outlines for data-driven tests
+- Background steps for common setup
+- Hooks for setup and teardown
+- Multiple output formats (pretty, progress, JSON, etc.)
+
+## Adding New Step Definitions
+
+To add new step definitions:
+
+1. **Add to `step_definitions.go`**:
+   ```go
+   func (tc *TestContext) myNewStep(param string) error {
+       // Implementation
+       return nil
+   }
+   ```
+
+2. **Register in `InitializeScenario`**:
+   ```go
+   ctx.Step(`^my new step with "([^"]*)"$`, tc.myNewStep)
+   ```
+
+## Example Usage
+
+Here's a complete example of adding a new test:
+
+1. **Create feature file** (`features/rust_formatting.feature`):
+   ```gherkin
+   Feature: Rust file formatting with rustfmt
+     Scenario: Rust file gets formatted
+       Given the following Rust file exists:
+         """
+         fn main(){println!("Hello");}
+         """
+       When rustfmt is installed
+       And lintair is called with Rust filenames
+       Then the rustfmt command should be executed
+   ```
+
+2. **Add environment** (in `step_definitions.go`):
+   ```go
+   "rust": {"docker/rust/rust.Dockerfile", "lintair-test:rust"},
+   ```
+
+3. **Add step definition**:
+   ```go
+   func (tc *TestContext) theFollowingRustFileExists(docString *godog.DocString) error {
+       // Implementation similar to other file creation steps
+   }
+   ```
+
+4. **Register step**:
+   ```go
+   ctx.Step(`^the following Rust file exists:$`, tc.theFollowingRustFileExists)
+   ```
 
 ## Debugging
 
 ### Container Logs
 When tests fail, container logs are automatically captured and displayed.
 
+### Verbose Output
+```bash
+# Run with pretty format for detailed output
+go run . --godog.format=pretty
+```
+
 ### Manual Container Inspection
-To manually inspect a container, modify the cleanup policy in `config.yaml`:
-```yaml
-docker:
-  cleanup_policy: "never"  # Keep containers after tests
+If needed, you can manually inspect containers:
+```bash
+# List running containers
+docker ps
+
+# Connect to a container
+docker exec -it <container-name> sh
 ```
 
-### Debug Logging
-Enable debug logging in `config.yaml`:
+## Continuous Integration
+
+### GitHub Actions Example
 ```yaml
-logging:
-  level: "DEBUG"
+name: BDD Tests
+on: [push, pull_request]
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: actions/setup-go@v4
+        with:
+          go-version: '1.24'
+      - name: Build CLI binary
+        run: GOOS=linux GOARCH=amd64 go build -o lintair-linux
+      - name: Run tests
+        run: |
+          cd tests
+          go test -v
 ```
 
-## Parallel Testing
+## Migration from Python/pytest-bdd
 
-Enable parallel test execution in `config.yaml`:
-```yaml
-parallel:
-  enabled: true
-  max_workers: 3
-```
+The framework was migrated from Python/pytest-bdd to Go/Godog for better integration:
+
+### Key Changes
+- `pytest-bdd` → `Godog`
+- `conftest.py` → `main.go` and `step_definitions.go`
+- Python step definitions → Go step definitions
+- Better performance and native integration
+- Simplified dependency management
+
+### Benefits
+- **Native Integration**: No Python dependency, pure Go
+- **Better Performance**: Faster startup and execution
+- **Simpler Deployment**: Single binary, no virtual environments
+- **Type Safety**: Compile-time error checking
+- **Tool Integration**: Better IDE support for Go development
 
 ## Best Practices
 
-1. **Environment Isolation**: Each scenario should run in a fresh container
-2. **Tag Usage**: Use `@env:` tags to specify test environments
-3. **File Cleanup**: Test files are automatically cleaned up between scenarios
-4. **Error Handling**: Always check exit codes and output in assertions
-5. **Container Resources**: Keep Dockerfiles minimal for faster builds
+1. **Container Isolation**: Each test runs in a fresh container
+2. **Resource Cleanup**: Containers are automatically cleaned up
+3. **Error Handling**: Tests capture and display container logs on failure
+4. **Feature Organization**: Group related scenarios in feature files
+5. **Step Reuse**: Create reusable step definitions for common operations
 
 ## Troubleshooting
 
 ### Common Issues
 
 1. **Docker Not Running**: Ensure Docker daemon is started
-2. **Binary Not Found**: Make sure CLI binary is built and accessible
+2. **Binary Not Found**: Make sure CLI binary is built (especially Linux version)
 3. **Container Build Failures**: Check Dockerfile syntax and base image availability
-4. **Port Conflicts**: Ensure no other containers are using the same ports
+4. **Module Errors**: Run `go mod tidy` to ensure dependencies are correct
 
-### Log Files
+### Getting Help
 
-- Test execution logs: `tests.log`
-- Container logs: Captured automatically on test failures
+```bash
+# Show command line options
+go run . -h
 
-## Contributing
+# Run with verbose output
+go run . --godog.format=pretty
 
-When adding new test scenarios:
+# Check Go module status
+go mod tidy
+go mod verify
+```
 
-1. Create appropriate feature files with clear descriptions
-2. Use existing step definitions when possible
-3. Add new step definitions to `cli_steps.py` for reusability
-4. Document any new Docker environments
-5. Update this README with new features or changes
-
-## Example Usage
-
-Here's a complete example of testing a new linter:
-
-1. **Add Dockerfile** (`tests/docker/rust/rust.Dockerfile`):
-   ```dockerfile
-   FROM rust:1.70-alpine
-   RUN apk add --no-cache bash curl
-   RUN cargo install rustfmt
-   CMD ["tail", "-f", "/dev/null"]
-   ```
-
-2. **Update config.yaml**:
-   ```yaml
-   environments:
-     rust170:
-       dockerfile: "tests/docker/rust/rust.Dockerfile"
-       tag: "lintair-test:rust170"
-       description: "Rust 1.70 with rustfmt"
-   ```
-
-3. **Create feature file** (`features/rust_linting.feature`):
-   ```gherkin
-   @env:rust170
-   Feature: Rust file linting with rustfmt
-     Scenario: Rust file gets formatted
-       Given the following Rust file exists:
-         '''
-         fn main(){println!("Hello");}
-         '''
-       When lintair is called with Rust filenames
-       Then the rustfmt command should be executed
-   ```
-
-The framework will automatically build the Docker image, start a container, execute your CLI, and verify the results!
+The framework handles all Docker management, file creation, command execution, and result validation automatically while providing a clean, maintainable Go-based testing solution!
