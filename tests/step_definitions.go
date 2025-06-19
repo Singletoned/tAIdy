@@ -91,7 +91,7 @@ func (tc *TestContext) thePythonFileExists(filename string) error {
 		}
 	}
 
-	sourceFile := fmt.Sprintf("../%s", filename)
+	sourceFile := fmt.Sprintf("sample_files/%s", filename)
 	if err := tc.currentContainer.CopyFileIntoContainer(sourceFile, filename); err != nil {
 		return fmt.Errorf("failed to copy Python file %s: %w", filename, err)
 	}
