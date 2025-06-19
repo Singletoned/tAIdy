@@ -207,6 +207,20 @@ func (cc *ContainerContext) ExecuteCommand(command string) (*CommandResult, erro
 	return result, nil
 }
 
+// CopyFileIntoContainer copies a file from the host into the container
+func (cc *ContainerContext) CopyFileIntoContainer(sourcePath, destFilename string) error {
+	// Use docker cp to copy file into container
+	containerPath := fmt.Sprintf("%s:/tmp/%s", cc.ID, destFilename)
+	cmd := exec.Command("docker", "cp", sourcePath, containerPath)
+	
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("failed to copy file %s to container: %w", sourcePath, err)
+	}
+	
+	log.Printf("Copied file %s to container %s as %s", sourcePath, cc.ID[:12], destFilename)
+	return nil
+}
+
 // VerifyLinterInstalled checks if a linter is installed in the container
 func (cc *ContainerContext) VerifyLinterInstalled(linter string) bool {
 	result, err := cc.ExecuteCommand(fmt.Sprintf("which %s", linter))

@@ -84,6 +84,22 @@ func (tc *TestContext) theFollowingPythonFileExists(docString *godog.DocString) 
 	return nil
 }
 
+func (tc *TestContext) thePythonFileExists(filename string) error {
+	if tc.currentContainer == nil {
+		if err := tc.SetupContainer("python311"); err != nil {
+			return err
+		}
+	}
+
+	sourceFile := fmt.Sprintf("../%s", filename)
+	if err := tc.currentContainer.CopyFileIntoContainer(sourceFile, filename); err != nil {
+		return fmt.Errorf("failed to copy Python file %s: %w", filename, err)
+	}
+	
+	tc.testFiles = append(tc.testFiles, filename)
+	return nil
+}
+
 func (tc *TestContext) theFollowingJavaScriptFileExists(docString *godog.DocString) error {
 	if tc.currentContainer == nil {
 		if err := tc.SetupContainer("node18"); err != nil {
@@ -390,6 +406,7 @@ func (tc *TestContext) aWarningShouldBeShownForUnsupportedFiles() error {
 func (tc *TestContext) InitializeScenario(ctx *godog.ScenarioContext) {
 	// File creation steps
 	ctx.Step(`^the following Python file exists:$`, tc.theFollowingPythonFileExists)
+	ctx.Step(`^the Python file "([^"]*)" exists$`, tc.thePythonFileExists)
 	ctx.Step(`^the following JavaScript file exists:$`, tc.theFollowingJavaScriptFileExists)
 	ctx.Step(`^the following Go file exists:$`, tc.theFollowingGoFileExists)
 
