@@ -130,6 +130,8 @@ func (cc *ContainerContext) StartContainer() error {
 
 	// Create and start container with scenario-based name
 	scenarioKey := strings.ReplaceAll(strings.ToLower(cc.scenarioName), " ", "-")
+	scenarioKey = strings.ReplaceAll(scenarioKey, ",", "")
+	scenarioKey = strings.ReplaceAll(scenarioKey, "'", "")
 	containerName := fmt.Sprintf("lintair-%s-%s", scenarioKey, cc.Environment)
 
 	cmd := exec.Command("docker", "run", "-d", "--rm", "--name", containerName,

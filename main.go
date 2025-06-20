@@ -26,6 +26,25 @@ var linterMap = map[string][]string{
 	".php":  {"php-cs-fixer", "fix", "--dry-run"},
 }
 
+// resolveLinterCommand checks if a linter is available, and if not, tries uvx alternative
+func resolveLinterCommand(cmd string, args []string) (string, []string) {
+	// Check if the command is available
+	if _, err := exec.LookPath(cmd); err == nil {
+		return cmd, args
+	}
+
+	// If ruff is not available, try uvx ruff
+	if cmd == "ruff" {
+		if _, err := exec.LookPath("uvx"); err == nil {
+			// Use uvx to run ruff
+			return "uvx", append([]string{"ruff"}, args...)
+		}
+	}
+
+	// If no alternative found, return original command (will likely fail)
+	return cmd, args
+}
+
 func main() {
 	if len(os.Args) < 2 {
 		fmt.Fprintf(os.Stderr, "Usage: %s <file1> <file2> ...\n", os.Args[0])
@@ -66,9 +85,12 @@ func main() {
 		cmd := linterCmd[0]
 		args := append(linterCmd[1:], fileList...)
 
-		fmt.Printf("Running: %s %s\n", cmd, strings.Join(args, " "))
+		// Check if the linter is available, if not try uvx alternative
+		finalCmd, finalArgs := resolveLinterCommand(cmd, args)
 
-		execCmd := exec.Command(cmd, args...)
+		fmt.Printf("Running: %s %s\n", finalCmd, strings.Join(finalArgs, " "))
+
+		execCmd := exec.Command(finalCmd, finalArgs...)
 		execCmd.Stdout = os.Stdout
 		execCmd.Stderr = os.Stderr
 
@@ -76,7 +98,7 @@ func main() {
 			if exitError, ok := err.(*exec.ExitError); ok {
 				exitCode = exitError.ExitCode()
 			} else {
-				fmt.Fprintf(os.Stderr, "Error executing %s: %v\n", cmd, err)
+				fmt.Fprintf(os.Stderr, "Error executing %s: %v\n", finalCmd, err)
 				exitCode = 1
 			}
 		}

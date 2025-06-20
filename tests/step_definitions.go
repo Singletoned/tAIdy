@@ -47,10 +47,11 @@ func (tc *TestContext) SetupContainer(environment string) error {
 		dockerfile string
 		tag        string
 	}{
-		"python311": {"docker/python/python311.Dockerfile", "lintair-test:python311"},
-		"node18":    {"docker/js/node18.Dockerfile", "lintair-test:node18"},
-		"go121":     {"docker/go/go121.Dockerfile", "lintair-test:go121"},
-		"minimal":   {"docker/minimal.Dockerfile", "lintair-test:minimal"},
+		"python311":    {"docker/python/python311.Dockerfile", "lintair-test:python311"},
+		"python311-uv": {"docker/python/python311-uv.Dockerfile", "lintair-test:python311-uv"},
+		"node18":       {"docker/js/node18.Dockerfile", "lintair-test:node18"},
+		"go121":        {"docker/go/go121.Dockerfile", "lintair-test:go121"},
+		"minimal":      {"docker/minimal.Dockerfile", "lintair-test:minimal"},
 	}
 
 	envConfig, exists := environments[environment]
@@ -87,17 +88,8 @@ func (tc *TestContext) theFollowingPythonFileExists(docString *godog.DocString) 
 }
 
 func (tc *TestContext) thePythonFileExists(filename string) error {
-	if tc.currentContainer == nil {
-		if err := tc.SetupContainer("python311"); err != nil {
-			return err
-		}
-	}
-
-	sourceFile := fmt.Sprintf("sample_files/%s", filename)
-	if err := tc.currentContainer.CopyFileIntoContainer(sourceFile, filename); err != nil {
-		return fmt.Errorf("failed to copy Python file %s: %w", filename, err)
-	}
-
+	// Store the filename for later - don't set up container yet
+	// This allows subsequent steps to determine the correct environment
 	tc.testFiles = append(tc.testFiles, filename)
 	return nil
 }
@@ -162,6 +154,16 @@ func (tc *TestContext) linterIsInstalled(linter string) error {
 		if err := tc.SetupContainer(environment); err != nil {
 			return err
 		}
+
+		// Copy any test files that were registered earlier
+		for _, filename := range tc.testFiles {
+			if strings.HasSuffix(filename, ".py") && linter == "ruff" {
+				sourceFile := fmt.Sprintf("sample_files/%s", filename)
+				if err := tc.currentContainer.CopyFileIntoContainer(sourceFile, filename); err != nil {
+					return fmt.Errorf("failed to copy Python file %s: %w", filename, err)
+				}
+			}
+		}
 	}
 
 	if !tc.currentContainer.VerifyLinterInstalled(linter) {
@@ -171,8 +173,29 @@ func (tc *TestContext) linterIsInstalled(linter string) error {
 }
 
 func (tc *TestContext) linterIsNotInstalled(linter string) error {
+	// Set up appropriate container that doesn't have the linter
 	if tc.currentContainer == nil {
-		return fmt.Errorf("no container available for testing")
+		var environment string
+		switch linter {
+		case "ruff":
+			environment = "python311-uv" // Use environment with uv but not ruff
+		default:
+			environment = "minimal"
+		}
+
+		if err := tc.SetupContainer(environment); err != nil {
+			return err
+		}
+
+		// Copy any test files that were registered earlier
+		for _, filename := range tc.testFiles {
+			if strings.HasSuffix(filename, ".py") {
+				sourceFile := fmt.Sprintf("sample_files/%s", filename)
+				if err := tc.currentContainer.CopyFileIntoContainer(sourceFile, filename); err != nil {
+					return fmt.Errorf("failed to copy Python file %s: %w", filename, err)
+				}
+			}
+		}
 	}
 
 	if tc.currentContainer.VerifyLinterInstalled(linter) {
@@ -415,6 +438,7 @@ func (tc *TestContext) InitializeScenario(ctx *godog.ScenarioContext) {
 	// Linter verification steps
 	ctx.Step(`^([a-zA-Z0-9_-]+) is installed$`, tc.linterIsInstalled)
 	ctx.Step(`^([a-zA-Z0-9_-]+) is not installed$`, tc.linterIsNotInstalled)
+	ctx.Step(`^([a-zA-Z0-9_-]+) isn't installed$`, tc.linterIsNotInstalled)
 
 	// CLI execution steps
 	ctx.Step(`^lintair is called with ([a-zA-Z]+) filenames$`, tc.lintairIsCalledWithFilenames)
