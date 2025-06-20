@@ -136,11 +136,15 @@ func NewTestContainerContext(environment string, manager *TestContainerManager) 
 		return nil, fmt.Errorf("failed to write Dockerfile: %w", err)
 	}
 
-	// Copy source files to build context (go.mod, go.sum, main.go)
+	// Copy source files to build context (go.mod, main.go, and go.sum if it exists)
 	sourceFiles := []string{
 		"../go.mod",
-		"../go.sum", 
 		"../main.go",
+	}
+	
+	// Add go.sum if it exists (minimal apps might not have one)
+	if _, err := os.Stat("../go.sum"); err == nil {
+		sourceFiles = append(sourceFiles, "../go.sum")
 	}
 	
 	for _, srcFile := range sourceFiles {
