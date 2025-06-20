@@ -25,7 +25,7 @@ func NewTestContext() *TestContext {
 	if err != nil {
 		log.Fatalf("Failed to create Docker manager: %v", err)
 	}
-	
+
 	return &TestContext{
 		dockerManager: dm,
 		testFiles:     make([]string, 0),
@@ -74,12 +74,12 @@ func (tc *TestContext) theFollowingPythonFileExists(docString *godog.DocString) 
 	if docString != nil {
 		content = docString.Content
 	}
-	
+
 	filename := fmt.Sprintf("test_%d.py", len(tc.testFiles)+1)
 	if err := tc.currentContainer.CreateFile(filename, content); err != nil {
 		return fmt.Errorf("failed to create Python file: %w", err)
 	}
-	
+
 	tc.testFiles = append(tc.testFiles, filename)
 	return nil
 }
@@ -95,7 +95,7 @@ func (tc *TestContext) thePythonFileExists(filename string) error {
 	if err := tc.currentContainer.CopyFileIntoContainer(sourceFile, filename); err != nil {
 		return fmt.Errorf("failed to copy Python file %s: %w", filename, err)
 	}
-	
+
 	tc.testFiles = append(tc.testFiles, filename)
 	return nil
 }
@@ -111,12 +111,12 @@ func (tc *TestContext) theFollowingJavaScriptFileExists(docString *godog.DocStri
 	if docString != nil {
 		content = docString.Content
 	}
-	
+
 	filename := fmt.Sprintf("test_%d.js", len(tc.testFiles)+1)
 	if err := tc.currentContainer.CreateFile(filename, content); err != nil {
 		return fmt.Errorf("failed to create JavaScript file: %w", err)
 	}
-	
+
 	tc.testFiles = append(tc.testFiles, filename)
 	return nil
 }
@@ -132,12 +132,12 @@ func (tc *TestContext) theFollowingGoFileExists(docString *godog.DocString) erro
 	if docString != nil {
 		content = docString.Content
 	}
-	
+
 	filename := fmt.Sprintf("test_%d.go", len(tc.testFiles)+1)
 	if err := tc.currentContainer.CreateFile(filename, content); err != nil {
 		return fmt.Errorf("failed to create Go file: %w", err)
 	}
-	
+
 	tc.testFiles = append(tc.testFiles, filename)
 	return nil
 }
@@ -156,7 +156,7 @@ func (tc *TestContext) linterIsInstalled(linter string) error {
 		default:
 			environment = "minimal"
 		}
-		
+
 		if err := tc.SetupContainer(environment); err != nil {
 			return err
 		}
@@ -224,7 +224,7 @@ func (tc *TestContext) lintairIsCalledWithFilenames(filePattern string) error {
 	if err != nil {
 		return fmt.Errorf("failed to execute lintair: %w", err)
 	}
-	
+
 	tc.commandResult = result
 	return nil
 }
@@ -246,7 +246,7 @@ func (tc *TestContext) lintairIsCalledWithTheFiles() error {
 	if err != nil {
 		return fmt.Errorf("failed to execute lintair: %w", err)
 	}
-	
+
 	tc.commandResult = result
 	return nil
 }
@@ -263,7 +263,7 @@ func (tc *TestContext) lintairIsCalledWithNoArguments() error {
 	if err != nil {
 		return fmt.Errorf("failed to execute lintair: %w", err)
 	}
-	
+
 	tc.commandResult = result
 	return nil
 }
@@ -281,7 +281,7 @@ func (tc *TestContext) lintairIsCalledWithFilesThatDontExist() error {
 	if err != nil {
 		return fmt.Errorf("failed to execute lintair: %w", err)
 	}
-	
+
 	tc.commandResult = result
 	return nil
 }
@@ -335,7 +335,7 @@ func (tc *TestContext) theOutputShouldMatchThePattern(pattern string) error {
 	if err != nil {
 		return fmt.Errorf("invalid regex pattern '%s': %w", pattern, err)
 	}
-	
+
 	if !matched {
 		return fmt.Errorf("expected output to match pattern '%s', but it didn't.\nActual output: %s",
 			pattern, combinedOutput)
@@ -375,7 +375,7 @@ func (tc *TestContext) thoseFilesGetLinted() error {
 	}
 
 	combinedOutput := tc.commandResult.Stdout + tc.commandResult.Stderr
-	
+
 	// Should see "Running:" in output indicating linters were executed
 	if !strings.Contains(combinedOutput, "Running:") {
 		return fmt.Errorf("expected files to be linted, but no linter execution found.\nActual output: %s",
@@ -394,7 +394,7 @@ func (tc *TestContext) aWarningShouldBeShownForUnsupportedFiles() error {
 	}
 
 	combinedOutput := tc.commandResult.Stdout + tc.commandResult.Stderr
-	
+
 	if !strings.Contains(combinedOutput, "Warning: No linter configured") {
 		return fmt.Errorf("expected warning for unsupported files, but none found.\nActual output: %s",
 			combinedOutput)

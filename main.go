@@ -33,17 +33,17 @@ func main() {
 	}
 
 	files := os.Args[1:]
-	
+
 	// Group files by their required linter
 	linterGroups := make(map[string][]string)
-	
+
 	for _, file := range files {
 		// Check if file exists
 		if _, err := os.Stat(file); os.IsNotExist(err) {
 			fmt.Printf("Warning: File %s does not exist, skipping\n", file)
 			continue
 		}
-		
+
 		ext := strings.ToLower(filepath.Ext(file))
 		if linterCmd, exists := linterMap[ext]; exists {
 			linterKey := strings.Join(linterCmd, " ")
@@ -52,26 +52,26 @@ func main() {
 			fmt.Printf("Warning: No linter configured for file %s (extension: %s)\n", file, ext)
 		}
 	}
-	
+
 	// Check if any files will be linted
 	if len(linterGroups) == 0 {
 		fmt.Println("No supported files provided, no files were linted")
 		os.Exit(0)
 	}
-	
+
 	// Execute each linter with its respective files
 	exitCode := 0
 	for linterKey, fileList := range linterGroups {
 		linterCmd := strings.Fields(linterKey)
 		cmd := linterCmd[0]
 		args := append(linterCmd[1:], fileList...)
-		
+
 		fmt.Printf("Running: %s %s\n", cmd, strings.Join(args, " "))
-		
+
 		execCmd := exec.Command(cmd, args...)
 		execCmd.Stdout = os.Stdout
 		execCmd.Stderr = os.Stderr
-		
+
 		if err := execCmd.Run(); err != nil {
 			if exitError, ok := err.(*exec.ExitError); ok {
 				exitCode = exitError.ExitCode()
@@ -81,6 +81,6 @@ func main() {
 			}
 		}
 	}
-	
+
 	os.Exit(exitCode)
 }

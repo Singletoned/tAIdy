@@ -48,7 +48,7 @@ func (dm *DockerManager) Close() error {
 // BuildImage builds a Docker image from a Dockerfile
 func (dm *DockerManager) BuildImage(dockerFile, tag string) error {
 	log.Printf("Building image %s from %s", tag, dockerFile)
-	
+
 	// Create a temporary directory for build context
 	buildDir, err := os.MkdirTemp("", "lintair-build-*")
 	if err != nil {
@@ -61,7 +61,7 @@ func (dm *DockerManager) BuildImage(dockerFile, tag string) error {
 	if err != nil {
 		return fmt.Errorf("failed to read Dockerfile: %w", err)
 	}
-	
+
 	if err := os.WriteFile(filepath.Join(buildDir, "Dockerfile"), dockerFileContent, 0644); err != nil {
 		return fmt.Errorf("failed to write Dockerfile: %w", err)
 	}
@@ -78,7 +78,7 @@ func (dm *DockerManager) BuildImage(dockerFile, tag string) error {
 		if err != nil {
 			return fmt.Errorf("failed to read binary: %w", err)
 		}
-		
+
 		if err := os.WriteFile(filepath.Join(buildDir, "lintair"), binaryContent, 0755); err != nil {
 			return fmt.Errorf("failed to write binary: %w", err)
 		}
@@ -92,7 +92,7 @@ func (dm *DockerManager) BuildImage(dockerFile, tag string) error {
 	if err != nil {
 		return fmt.Errorf("failed to build image: %w, output: %s", err, string(output))
 	}
-	
+
 	log.Printf("Build output: %s", string(output))
 	return nil
 }
@@ -125,8 +125,8 @@ func (cc *ContainerContext) StartContainer() error {
 
 	// Create and start container
 	containerName := fmt.Sprintf("lintair-test-%s-%d", cc.Environment, time.Now().Unix())
-	
-	cmd := exec.Command("docker", "run", "-d", "--rm", "--name", containerName, 
+
+	cmd := exec.Command("docker", "run", "-d", "--rm", "--name", containerName,
 		"-w", "/tmp", cc.tag, "sleep", "300")
 	output, err := cmd.Output()
 	if err != nil {
@@ -158,14 +158,14 @@ func (cc *ContainerContext) StopContainer() error {
 // CreateFile creates a file inside the container
 func (cc *ContainerContext) CreateFile(filename, content string) error {
 	// Create file using docker exec
-	cmd := exec.Command("docker", "exec", cc.ID, "sh", "-c", 
+	cmd := exec.Command("docker", "exec", cc.ID, "sh", "-c",
 		fmt.Sprintf("cat > /tmp/%s", filename))
 	cmd.Stdin = strings.NewReader(content)
-	
+
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to create file %s: %w", filename, err)
 	}
-	
+
 	log.Printf("Created file %s in container %s", filename, cc.ID[:12])
 	return nil
 }
@@ -174,11 +174,11 @@ func (cc *ContainerContext) CreateFile(filename, content string) error {
 func (cc *ContainerContext) ExecuteCommand(command string) (*CommandResult, error) {
 	// Execute command using docker exec
 	dockerCmd := exec.Command("docker", "exec", cc.ID, "sh", "-c", command)
-	
+
 	var stdout, stderr bytes.Buffer
 	dockerCmd.Stdout = &stdout
 	dockerCmd.Stderr = &stderr
-	
+
 	err := dockerCmd.Run()
 	exitCode := 0
 	if err != nil {
@@ -188,7 +188,7 @@ func (cc *ContainerContext) ExecuteCommand(command string) (*CommandResult, erro
 			exitCode = 1
 		}
 	}
-	
+
 	result := &CommandResult{
 		Command:  command,
 		ExitCode: exitCode,
@@ -212,11 +212,11 @@ func (cc *ContainerContext) CopyFileIntoContainer(sourcePath, destFilename strin
 	// Use docker cp to copy file into container
 	containerPath := fmt.Sprintf("%s:/tmp/%s", cc.ID, destFilename)
 	cmd := exec.Command("docker", "cp", sourcePath, containerPath)
-	
+
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("failed to copy file %s to container: %w", sourcePath, err)
 	}
-	
+
 	log.Printf("Copied file %s to container %s as %s", sourcePath, cc.ID[:12], destFilename)
 	return nil
 }

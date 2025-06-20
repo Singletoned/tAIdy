@@ -12,9 +12,9 @@ import (
 )
 
 var opts = godog.Options{
-	Output: colors.Colored(os.Stdout),
-	Format: "pretty", // or "progress"
-	Paths:  []string{"features"},
+	Output:    colors.Colored(os.Stdout),
+	Format:    "pretty", // or "progress"
+	Paths:     []string{"features"},
 	Randomize: 0, // randomize scenario execution order
 }
 
@@ -26,7 +26,7 @@ func InitializeTestSuite(ctx *godog.TestSuiteContext) {
 	ctx.BeforeSuite(func() {
 		log.Println("Starting BDD test suite...")
 	})
-	
+
 	ctx.AfterSuite(func() {
 		log.Println("BDD test suite completed.")
 	})
@@ -34,13 +34,13 @@ func InitializeTestSuite(ctx *godog.TestSuiteContext) {
 
 func InitializeScenario(ctx *godog.ScenarioContext) {
 	testContext := NewTestContext()
-	
+
 	// Clean up at the end
 	ctx.After(func(ctx context.Context, sc *godog.Scenario, err error) (context.Context, error) {
 		testContext.Close()
 		return ctx, nil
 	})
-	
+
 	testContext.InitializeScenario(ctx)
 }
 
@@ -53,10 +53,10 @@ func main() {
 	}
 
 	status := godog.TestSuite{
-		Name:                "lintair BDD tests",
-		ScenarioInitializer: InitializeScenario,
+		Name:                 "lintair BDD tests",
+		ScenarioInitializer:  InitializeScenario,
 		TestSuiteInitializer: InitializeTestSuite,
-		Options:             &opts,
+		Options:              &opts,
 	}.Run()
 
 	if st := status; st > 0 {

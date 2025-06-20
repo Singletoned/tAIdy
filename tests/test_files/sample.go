@@ -61,34 +61,34 @@ func FormatGreeting(name, title string) string {
 func ParseNumbers(input string) ([]int, error) {
 	parts := strings.Split(input, ",")
 	numbers := make([]int, 0, len(parts))
-	
+
 	for _, part := range parts {
 		trimmed := strings.TrimSpace(part)
 		if trimmed == "" {
 			continue
 		}
-		
+
 		num, err := strconv.Atoi(trimmed)
 		if err != nil {
 			return nil, fmt.Errorf("invalid number: %s", trimmed)
 		}
 		numbers = append(numbers, num)
 	}
-	
+
 	return numbers, nil
 }
 
 func main() {
 	calc := NewCalculator()
-	
+
 	fmt.Println(calc.Add(5, 3))
 	fmt.Println(calc.Multiply(4, 2))
 	fmt.Println("History:", calc.GetHistory())
-	
+
 	numbers := []int{1, 2, 3, 4, 5}
 	sum := CalculateSum(numbers)
 	fmt.Printf("Sum of %v = %d\n", numbers, sum)
-	
+
 	greeting := FormatGreeting("World", "")
 	fmt.Println(greeting)
 }
