@@ -17,6 +17,7 @@ type TestContext struct {
 	currentContainer *ContainerContext
 	testFiles        []string
 	commandResult    *CommandResult
+	scenarioName     string
 }
 
 // NewTestContext creates a new test context
@@ -58,6 +59,7 @@ func (tc *TestContext) SetupContainer(environment string) error {
 	}
 
 	tc.currentContainer = NewContainerContext(environment, envConfig.dockerfile, envConfig.tag, tc.dockerManager)
+	tc.currentContainer.SetScenarioName(tc.scenarioName)
 	return tc.currentContainer.StartContainer()
 }
 
@@ -437,7 +439,12 @@ func (tc *TestContext) InitializeScenario(ctx *godog.ScenarioContext) {
 	ctx.Step(`^those files get formatted$`, tc.thoseFilesGetFormatted)
 	ctx.Step(`^a warning should be shown for unsupported files$`, tc.aWarningShouldBeShownForUnsupportedFiles)
 
-	// Clean up after each scenario
+	// Set scenario name and clean up after each scenario
+	ctx.Before(func(ctx context.Context, sc *godog.Scenario) (context.Context, error) {
+		tc.scenarioName = sc.Name
+		return ctx, nil
+	})
+
 	ctx.After(func(ctx context.Context, sc *godog.Scenario, err error) (context.Context, error) {
 		if tc.currentContainer != nil {
 			tc.currentContainer.StopContainer()

@@ -9,7 +9,6 @@ import (
 	"os/exec"
 	"path/filepath"
 	"strings"
-	"time"
 )
 
 // DockerManager handles Docker operations for testing
@@ -19,12 +18,13 @@ type DockerManager struct {
 
 // ContainerContext holds information about a test container
 type ContainerContext struct {
-	ID          string
-	Name        string
-	Environment string
-	dockerFile  string
-	tag         string
-	manager     *DockerManager
+	ID           string
+	Name         string
+	Environment  string
+	dockerFile   string
+	tag          string
+	manager      *DockerManager
+	scenarioName string
 }
 
 // NewDockerManager creates a new Docker manager
@@ -114,6 +114,11 @@ func NewContainerContext(environment, dockerFile, tag string, manager *DockerMan
 	}
 }
 
+// SetScenarioName sets the scenario name for container naming
+func (cc *ContainerContext) SetScenarioName(scenarioName string) {
+	cc.scenarioName = scenarioName
+}
+
 // StartContainer starts a new container for testing
 func (cc *ContainerContext) StartContainer() error {
 	// Build image if it doesn't exist locally
@@ -123,8 +128,9 @@ func (cc *ContainerContext) StartContainer() error {
 		}
 	}
 
-	// Create and start container
-	containerName := fmt.Sprintf("lintair-test-%s-%d", cc.Environment, time.Now().Unix())
+	// Create and start container with scenario-based name
+	scenarioKey := strings.ReplaceAll(strings.ToLower(cc.scenarioName), " ", "-")
+	containerName := fmt.Sprintf("lintair-%s-%s", scenarioKey, cc.Environment)
 
 	cmd := exec.Command("docker", "run", "-d", "--rm", "--name", containerName,
 		"-w", "/tmp", cc.tag, "sleep", "300")
