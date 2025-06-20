@@ -34,7 +34,8 @@ func InitializeTestSuite(ctx *godog.TestSuiteContext) {
 }
 
 func InitializeScenario(ctx *godog.ScenarioContext) {
-	testContext := NewTestContext()
+	// Use testcontainer test context instead of the old one
+	testContext := NewTestContainerTestContext()
 
 	// Clean up at the end
 	ctx.After(func(ctx context.Context, sc *godog.Scenario, err error) (context.Context, error) {
