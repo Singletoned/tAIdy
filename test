@@ -1,3 +1,0 @@
-#!/bin/bash
-# Simple test runner wrapper
-exec ./scripts/test.sh "$@"

@@ -36,23 +36,8 @@ check-docker:
         echo "{{blue}}[INFO]{{nc}} Please start Docker and try again."; \
     fi
 
-# Run BDD tests with default format
+# Run BDD tests
 test: build-linux check-docker
-    @echo "{{blue}}[INFO]{{nc}} Running BDD tests..."
-    cd tests && go run .
-
-# Run BDD tests with pretty format (same as default)
-test-pretty: build-linux check-docker
-    @echo "{{blue}}[INFO]{{nc}} Running BDD tests..."
-    cd tests && go run .
-
-# Run BDD tests with progress format (same as default for now)
-test-progress: build-linux check-docker
-    @echo "{{blue}}[INFO]{{nc}} Running BDD tests..."
-    cd tests && go run .
-
-# Run BDD tests with JSON format (same as default for now)
-test-json: build-linux check-docker
     @echo "{{blue}}[INFO]{{nc}} Running BDD tests..."
     cd tests && go run .
 
@@ -66,24 +51,6 @@ build-tests: build-linux
     @echo "{{blue}}[INFO]{{nc}} Building test binary..."
     cd tests && go build -o lintair-tests
     @echo "{{green}}[SUCCESS]{{nc}} Built test binary at tests/lintair-tests"
-
-# Run tests using built binary
-run-tests: build-tests check-docker
-    @echo "{{blue}}[INFO]{{nc}} Running tests using built binary..."
-    cd tests && ./lintair-tests
-
-# Install test dependencies
-deps:
-    @echo "{{blue}}[INFO]{{nc}} Installing test dependencies..."
-    cd tests && go mod tidy
-    @echo "{{green}}[SUCCESS]{{nc}} Test dependencies updated"
-
-# Clean build artifacts
-clean:
-    @echo "{{blue}}[INFO]{{nc}} Cleaning build artifacts..."
-    rm -f lintair lintair-linux
-    cd tests && rm -f lintair-tests
-    @echo "{{green}}[SUCCESS]{{nc}} Cleaned build artifacts"
 
 # Run tests and generate coverage (if supported)
 test-coverage: build-linux check-docker
@@ -112,28 +79,10 @@ fmt:
     @echo "{{green}}[SUCCESS]{{nc}} Code formatted"
 
 # Run all checks (format, lint, test)
-check: fmt lint test-pretty
-
-# List all available recipes
-list:
-    @just --list
-
-# Quick test with specific format (formats not working yet)
-test-with format: build-linux check-docker
-    @echo "{{blue}}[INFO]{{nc}} Running BDD tests..."
-    cd tests && go run .
-
-# Watch and run tests on file changes (requires watchexec)
-watch:
-    @echo "{{blue}}[INFO]{{nc}} Watching for changes and running tests..."
-    @if command -v watchexec >/dev/null 2>&1; then \
-        watchexec --exts go,feature --ignore tests/lintair-tests -- just test; \
-    else \
-        echo "{{red}}[ERROR]{{nc}} watchexec not installed. Install with: brew install watchexec"; \
-    fi
+check: fmt lint test
 
 # Dev workflow: format, lint, build, test
-dev: fmt lint build-all test-pretty
+dev: fmt lint build-all test
 
 # CI workflow: all checks including coverage
 ci: fmt lint build-all test-coverage
