@@ -72,6 +72,18 @@ RUN pip install uv
 COPY --from=builder /src/lintair /app/lintair
 RUN chmod +x /app/lintair
 WORKDIR /tmp`, nil
+	case "python311-black":
+		return `FROM golang:1.24-alpine AS builder
+COPY . /src
+WORKDIR /src
+RUN go mod download
+RUN go build -o lintair main.go
+
+FROM python:3.11-slim
+RUN pip install black
+COPY --from=builder /src/lintair /app/lintair
+RUN chmod +x /app/lintair
+WORKDIR /tmp`, nil
 	case "node18":
 		return `FROM golang:1.24-alpine AS builder
 COPY . /src
@@ -141,12 +153,12 @@ func NewTestContainerContext(environment string, manager *TestContainerManager) 
 		"../go.mod",
 		"../main.go",
 	}
-	
+
 	// Add go.sum if it exists (minimal apps might not have one)
 	if _, err := os.Stat("../go.sum"); err == nil {
 		sourceFiles = append(sourceFiles, "../go.sum")
 	}
-	
+
 	for _, srcFile := range sourceFiles {
 		if _, err := os.Stat(srcFile); err == nil {
 			content, err := os.ReadFile(srcFile)
@@ -216,7 +228,7 @@ func (tcc *TestContainerContext) StopContainer() error {
 	if containerInfo != nil {
 		containerID = containerInfo.ID[:12]
 	}
-	
+
 	if err := tcc.Container.Terminate(context.Background()); err != nil {
 		log.Printf("Warning: failed to terminate container %s: %v", containerID, err)
 		return err
@@ -234,9 +246,9 @@ func (tcc *TestContainerContext) CreateFile(filename, content string) error {
 
 	// Use testcontainers CopyToContainer with proper method
 	filePath := fmt.Sprintf("/tmp/%s", filename)
-	err := tcc.Container.CopyToContainer(context.Background(), 
-		[]byte(content), 
-		filePath, 
+	err := tcc.Container.CopyToContainer(context.Background(),
+		[]byte(content),
+		filePath,
 		0644)
 	if err != nil {
 		return fmt.Errorf("failed to create file %s: %w", filename, err)
@@ -301,9 +313,9 @@ func (tcc *TestContainerContext) CopyFileIntoContainer(sourcePath, destFilename 
 
 	// Copy to container
 	destPath := fmt.Sprintf("/tmp/%s", destFilename)
-	err = tcc.Container.CopyToContainer(context.Background(), 
-		content, 
-		destPath, 
+	err = tcc.Container.CopyToContainer(context.Background(),
+		content,
+		destPath,
 		0644)
 	if err != nil {
 		return fmt.Errorf("failed to copy file %s to container: %w", sourcePath, err)

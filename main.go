@@ -26,18 +26,32 @@ var linterMap = map[string][]string{
 	".php":  {"php-cs-fixer", "fix", "--dry-run"},
 }
 
-// resolveLinterCommand checks if a linter is available, and if not, tries uvx alternative
+// resolveLinterCommand checks if a linter is available, and if not, tries alternatives
 func resolveLinterCommand(cmd string, args []string) (string, []string) {
 	// Check if the command is available
 	if _, err := exec.LookPath(cmd); err == nil {
 		return cmd, args
 	}
 
-	// If ruff is not available, try uvx ruff
+	// If ruff is not available, try uvx ruff, then fall back to black
 	if cmd == "ruff" {
 		if _, err := exec.LookPath("uvx"); err == nil {
 			// Use uvx to run ruff
 			return "uvx", append([]string{"ruff"}, args...)
+		}
+
+		// Fall back to black if available
+		if _, err := exec.LookPath("black"); err == nil {
+			// Convert ruff check arguments to black format arguments
+			blackArgs := []string{"--check", "--diff"}
+			// Filter out ruff-specific arguments and add files
+			for _, arg := range args {
+				if arg == "check" {
+					continue // Skip ruff's "check" subcommand
+				}
+				blackArgs = append(blackArgs, arg)
+			}
+			return "black", blackArgs
 		}
 	}
 

@@ -18,6 +18,8 @@ type TestContainerTestContext struct {
 	testFiles        []string
 	commandResult    *CommandResult
 	scenarioName     string
+	requiredLinters  []string // Linters that must be installed
+	forbiddenLinters []string // Linters that must NOT be installed
 }
 
 // NewTestContainerTestContext creates a new test context using testcontainers
@@ -39,6 +41,54 @@ func (tctx *TestContainerTestContext) Close() error {
 		tctx.currentContainer.StopContainer()
 	}
 	return tctx.containerManager.Close()
+}
+
+// determineEnvironment selects the best environment based on required and forbidden linters
+func (tctx *TestContainerTestContext) determineEnvironment() string {
+	// Check for Python linters
+	hasRuff := contains(tctx.requiredLinters, "ruff")
+	hasBlack := contains(tctx.requiredLinters, "black")
+	hasUv := contains(tctx.requiredLinters, "uv")
+
+	forbidsRuff := contains(tctx.forbiddenLinters, "ruff")
+	forbidsBlack := contains(tctx.forbiddenLinters, "black")
+	forbidsUv := contains(tctx.forbiddenLinters, "uv")
+
+	// Check for other linters
+	hasPrettier := contains(tctx.requiredLinters, "prettier")
+	hasGofmt := contains(tctx.requiredLinters, "gofmt")
+
+	// Python environment selection
+	if hasRuff && !forbidsRuff {
+		return "python311"
+	}
+	if hasUv && !forbidsUv && !hasRuff && !hasBlack {
+		return "python311-uv"
+	}
+	if hasBlack && !forbidsBlack && forbidsRuff && forbidsUv {
+		return "python311-black"
+	}
+
+	// Other environments
+	if hasPrettier {
+		return "node18"
+	}
+	if hasGofmt {
+		return "go121"
+	}
+
+	// Default to minimal environment
+	return "minimal"
+}
+
+// Helper function to check if slice contains a string
+func contains(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+	}
+	return false
 }
 
 // SetupContainer sets up a container for the given environment using testcontainers
@@ -126,27 +176,19 @@ func (tctx *TestContainerTestContext) theFollowingGoFileExists(docString *godog.
 }
 
 func (tctx *TestContainerTestContext) linterIsInstalled(linter string) error {
-	// Set up appropriate container based on linter
-	if tctx.currentContainer == nil {
-		var environment string
-		switch linter {
-		case "ruff":
-			environment = "python311"
-		case "prettier":
-			environment = "node18"
-		case "gofmt":
-			environment = "go121"
-		default:
-			environment = "minimal"
-		}
+	// Track required linters
+	tctx.requiredLinters = append(tctx.requiredLinters, linter)
 
+	// Set up container if needed
+	if tctx.currentContainer == nil {
+		environment := tctx.determineEnvironment()
 		if err := tctx.SetupContainer(environment); err != nil {
 			return err
 		}
 
 		// Copy any test files that were registered earlier
 		for _, filename := range tctx.testFiles {
-			if strings.HasSuffix(filename, ".py") && linter == "ruff" {
+			if strings.HasSuffix(filename, ".py") && (linter == "ruff" || linter == "black" || linter == "uv") {
 				sourceFile := fmt.Sprintf("sample_files/%s", filename)
 				if err := tctx.currentContainer.CopyFileIntoContainer(sourceFile, filename); err != nil {
 					return fmt.Errorf("failed to copy Python file %s: %w", filename, err)
@@ -162,16 +204,26 @@ func (tctx *TestContainerTestContext) linterIsInstalled(linter string) error {
 }
 
 func (tctx *TestContainerTestContext) linterIsNotInstalled(linter string) error {
-	// Set up appropriate container that doesn't have the linter
-	if tctx.currentContainer == nil {
-		var environment string
-		switch linter {
-		case "ruff":
-			environment = "python311-uv" // Use environment with uv but not ruff
-		default:
-			environment = "minimal"
-		}
+	// Track forbidden linters
+	tctx.forbiddenLinters = append(tctx.forbiddenLinters, linter)
 
+	// If container is already set up, just verify the linter is not installed
+	if tctx.currentContainer != nil {
+		if tctx.currentContainer.VerifyLinterInstalled(linter) {
+			return fmt.Errorf("linter %s should not be installed in the container", linter)
+		}
+		return nil
+	}
+
+	// Set up container will be done when first required linter is specified
+	// For now, just track the constraint
+	return nil
+}
+
+func (tctx *TestContainerTestContext) lintairIsCalledWithFilenames(filePattern string) error {
+	if tctx.currentContainer == nil {
+		// Set up container based on accumulated constraints
+		environment := tctx.determineEnvironment()
 		if err := tctx.SetupContainer(environment); err != nil {
 			return err
 		}
@@ -185,17 +237,18 @@ func (tctx *TestContainerTestContext) linterIsNotInstalled(linter string) error 
 				}
 			}
 		}
-	}
 
-	if tctx.currentContainer.VerifyLinterInstalled(linter) {
-		return fmt.Errorf("linter %s should not be installed in the container", linter)
-	}
-	return nil
-}
-
-func (tctx *TestContainerTestContext) lintairIsCalledWithFilenames(filePattern string) error {
-	if tctx.currentContainer == nil {
-		return fmt.Errorf("no container available for testing")
+		// Verify all constraints are satisfied
+		for _, linter := range tctx.requiredLinters {
+			if !tctx.currentContainer.VerifyLinterInstalled(linter) {
+				return fmt.Errorf("required linter %s is not installed in the container", linter)
+			}
+		}
+		for _, linter := range tctx.forbiddenLinters {
+			if tctx.currentContainer.VerifyLinterInstalled(linter) {
+				return fmt.Errorf("forbidden linter %s is installed in the container", linter)
+			}
+		}
 	}
 
 	// Filter test files based on pattern
@@ -428,6 +481,8 @@ func (tctx *TestContainerTestContext) InitializeScenario(ctx *godog.ScenarioCont
 	ctx.Step(`^([a-zA-Z0-9_-]+) is installed$`, tctx.linterIsInstalled)
 	ctx.Step(`^([a-zA-Z0-9_-]+) is not installed$`, tctx.linterIsNotInstalled)
 	ctx.Step(`^([a-zA-Z0-9_-]+) isn't installed$`, tctx.linterIsNotInstalled)
+	ctx.Step(`^And ([a-zA-Z0-9_-]+) isn't installed$`, tctx.linterIsNotInstalled)
+	ctx.Step(`^But ([a-zA-Z0-9_-]+) is installed$`, tctx.linterIsInstalled)
 
 	// CLI execution steps
 	ctx.Step(`^lintair is called with ([a-zA-Z]+) filenames$`, tctx.lintairIsCalledWithFilenames)
@@ -465,6 +520,8 @@ func (tctx *TestContainerTestContext) InitializeScenario(ctx *godog.ScenarioCont
 		}
 		tctx.testFiles = tctx.testFiles[:0] // Clear slice
 		tctx.commandResult = nil
+		tctx.requiredLinters = tctx.requiredLinters[:0]   // Clear slice
+		tctx.forbiddenLinters = tctx.forbiddenLinters[:0] // Clear slice
 		return ctx, nil
 	})
 }

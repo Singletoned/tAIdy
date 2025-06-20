@@ -12,3 +12,11 @@ Feature: Formatting Python files
     But uv is installed
     And lintair is called with Python filenames
     Then those files get formatted
+
+  Scenario: Ruff and uv are not installed, black is
+    Given the Python file "poorly_formatted.py" exists
+    When ruff isn't installed
+    And uv isn't installed
+    But black is installed
+    And lintair is called with Python filenames
+    Then those files get formatted
