@@ -8,80 +8,280 @@ import (
 	"strings"
 )
 
-// LinterConfig maps file extensions to their corresponding linter commands
-var linterMap = map[string][]string{
-	".py":   {"ruff", "check"},
-	".js":   {"prettier", "--check"},
-	".jsx":  {"prettier", "--check"},
-	".ts":   {"prettier", "--check"},
-	".tsx":  {"prettier", "--check"},
-	".json": {"prettier", "--check"},
-	".css":  {"prettier", "--check"},
-	".scss": {"prettier", "--check"},
-	".html": {"prettier", "--check"},
-	".md":   {"prettier", "--check"},
-	".go":   {"gofmt", "-l"},
-	".rs":   {"rustfmt", "--check"},
-	".rb":   {"rubocop"},
-	".php":  {"php-cs-fixer", "fix", "--dry-run"},
-}
-
-// LinterAlternative represents a fallback option for a linter
-type LinterAlternative struct {
+// LinterCommand represents a linter command that can be tried
+type LinterCommand struct {
 	Available func() bool
-	Command   func(args []string) (string, []string)
+	Command   func(files []string) (string, []string)
 }
 
-// resolveLinterCommand checks if a linter is available, and if not, tries alternatives
-func resolveLinterCommand(cmd string, args []string) (string, []string) {
-	// Check if the original command is available
-	if _, err := exec.LookPath(cmd); err == nil {
-		return cmd, args
-	}
-
-	// Define fallback strategies for each linter
-	fallbacks := map[string][]LinterAlternative{
-		"ruff": {
-			{
-				Available: func() bool {
-					_, err := exec.LookPath("uvx")
-					return err == nil
-				},
-				Command: func(args []string) (string, []string) {
-					return "uvx", append([]string{"ruff"}, args...)
-				},
+// LinterConfig maps file extensions to sequences of linter commands to try in order
+var linterMap = map[string][]LinterCommand{
+	".py": {
+		{
+			Available: func() bool {
+				_, err := exec.LookPath("ruff")
+				return err == nil
 			},
-			{
-				Available: func() bool {
-					_, err := exec.LookPath("black")
-					return err == nil
-				},
-				Command: func(args []string) (string, []string) {
-					blackArgs := []string{"--check", "--diff"}
-					// Filter out ruff-specific arguments and add files
-					for _, arg := range args {
-						if arg == "check" {
-							continue // Skip ruff's "check" subcommand
-						}
-						blackArgs = append(blackArgs, arg)
-					}
-					return "black", blackArgs
-				},
+			Command: func(files []string) (string, []string) {
+				return "ruff", append([]string{"check"}, files...)
 			},
 		},
-	}
-
-	// Try each fallback in order
-	if alternatives, exists := fallbacks[cmd]; exists {
-		for _, alt := range alternatives {
-			if alt.Available() {
-				return alt.Command(args)
-			}
-		}
-	}
-
-	// If no alternative found, return original command (will likely fail)
-	return cmd, args
+		{
+			Available: func() bool {
+				_, err := exec.LookPath("uvx")
+				return err == nil
+			},
+			Command: func(files []string) (string, []string) {
+				return "uvx", append([]string{"ruff", "check"}, files...)
+			},
+		},
+		{
+			Available: func() bool {
+				_, err := exec.LookPath("black")
+				return err == nil
+			},
+			Command: func(files []string) (string, []string) {
+				return "black", append([]string{"--check", "--diff"}, files...)
+			},
+		},
+		{
+			Available: func() bool {
+				_, err := exec.LookPath("flake8")
+				return err == nil
+			},
+			Command: func(files []string) (string, []string) {
+				return "flake8", files
+			},
+		},
+		{
+			Available: func() bool {
+				_, err := exec.LookPath("pylint")
+				return err == nil
+			},
+			Command: func(files []string) (string, []string) {
+				return "pylint", files
+			},
+		},
+		{
+			Available: func() bool {
+				_, err := exec.LookPath("python")
+				return err == nil
+			},
+			Command: func(files []string) (string, []string) {
+				// Basic syntax check as final fallback
+				args := []string{"-m", "py_compile"}
+				return "python", append(args, files...)
+			},
+		},
+	},
+	".js": {
+		{
+			Available: func() bool {
+				_, err := exec.LookPath("eslint")
+				return err == nil
+			},
+			Command: func(files []string) (string, []string) {
+				return "eslint", files
+			},
+		},
+		{
+			Available: func() bool {
+				_, err := exec.LookPath("prettier")
+				return err == nil
+			},
+			Command: func(files []string) (string, []string) {
+				return "prettier", append([]string{"--check"}, files...)
+			},
+		},
+		{
+			Available: func() bool {
+				_, err := exec.LookPath("node")
+				return err == nil
+			},
+			Command: func(files []string) (string, []string) {
+				// Basic syntax check as fallback
+				args := []string{"--check"}
+				return "node", append(args, files...)
+			},
+		},
+	},
+	".jsx": {
+		{
+			Available: func() bool {
+				_, err := exec.LookPath("eslint")
+				return err == nil
+			},
+			Command: func(files []string) (string, []string) {
+				return "eslint", files
+			},
+		},
+		{
+			Available: func() bool {
+				_, err := exec.LookPath("prettier")
+				return err == nil
+			},
+			Command: func(files []string) (string, []string) {
+				return "prettier", append([]string{"--check"}, files...)
+			},
+		},
+	},
+	".ts": {
+		{
+			Available: func() bool {
+				_, err := exec.LookPath("eslint")
+				return err == nil
+			},
+			Command: func(files []string) (string, []string) {
+				return "eslint", files
+			},
+		},
+		{
+			Available: func() bool {
+				_, err := exec.LookPath("tsc")
+				return err == nil
+			},
+			Command: func(files []string) (string, []string) {
+				return "tsc", append([]string{"--noEmit"}, files...)
+			},
+		},
+		{
+			Available: func() bool {
+				_, err := exec.LookPath("prettier")
+				return err == nil
+			},
+			Command: func(files []string) (string, []string) {
+				return "prettier", append([]string{"--check"}, files...)
+			},
+		},
+	},
+	".tsx": {
+		{
+			Available: func() bool {
+				_, err := exec.LookPath("eslint")
+				return err == nil
+			},
+			Command: func(files []string) (string, []string) {
+				return "eslint", files
+			},
+		},
+		{
+			Available: func() bool {
+				_, err := exec.LookPath("tsc")
+				return err == nil
+			},
+			Command: func(files []string) (string, []string) {
+				return "tsc", append([]string{"--noEmit"}, files...)
+			},
+		},
+		{
+			Available: func() bool {
+				_, err := exec.LookPath("prettier")
+				return err == nil
+			},
+			Command: func(files []string) (string, []string) {
+				return "prettier", append([]string{"--check"}, files...)
+			},
+		},
+	},
+	".json": {
+		{
+			Available: func() bool {
+				_, err := exec.LookPath("prettier")
+				return err == nil
+			},
+			Command: func(files []string) (string, []string) {
+				return "prettier", append([]string{"--check"}, files...)
+			},
+		},
+	},
+	".css": {
+		{
+			Available: func() bool {
+				_, err := exec.LookPath("prettier")
+				return err == nil
+			},
+			Command: func(files []string) (string, []string) {
+				return "prettier", append([]string{"--check"}, files...)
+			},
+		},
+	},
+	".scss": {
+		{
+			Available: func() bool {
+				_, err := exec.LookPath("prettier")
+				return err == nil
+			},
+			Command: func(files []string) (string, []string) {
+				return "prettier", append([]string{"--check"}, files...)
+			},
+		},
+	},
+	".html": {
+		{
+			Available: func() bool {
+				_, err := exec.LookPath("prettier")
+				return err == nil
+			},
+			Command: func(files []string) (string, []string) {
+				return "prettier", append([]string{"--check"}, files...)
+			},
+		},
+	},
+	".md": {
+		{
+			Available: func() bool {
+				_, err := exec.LookPath("prettier")
+				return err == nil
+			},
+			Command: func(files []string) (string, []string) {
+				return "prettier", append([]string{"--check"}, files...)
+			},
+		},
+	},
+	".go": {
+		{
+			Available: func() bool {
+				_, err := exec.LookPath("gofmt")
+				return err == nil
+			},
+			Command: func(files []string) (string, []string) {
+				return "gofmt", append([]string{"-l"}, files...)
+			},
+		},
+	},
+	".rs": {
+		{
+			Available: func() bool {
+				_, err := exec.LookPath("rustfmt")
+				return err == nil
+			},
+			Command: func(files []string) (string, []string) {
+				return "rustfmt", append([]string{"--check"}, files...)
+			},
+		},
+	},
+	".rb": {
+		{
+			Available: func() bool {
+				_, err := exec.LookPath("rubocop")
+				return err == nil
+			},
+			Command: func(files []string) (string, []string) {
+				return "rubocop", files
+			},
+		},
+	},
+	".php": {
+		{
+			Available: func() bool {
+				_, err := exec.LookPath("php-cs-fixer")
+				return err == nil
+			},
+			Command: func(files []string) (string, []string) {
+				return "php-cs-fixer", append([]string{"fix", "--dry-run"}, files...)
+			},
+		},
+	},
 }
 
 func main() {
@@ -92,8 +292,8 @@ func main() {
 
 	files := os.Args[1:]
 
-	// Group files by their required linter
-	linterGroups := make(map[string][]string)
+	// Group files by their file extension
+	fileGroups := make(map[string][]string)
 
 	for _, file := range files {
 		// Check if file exists
@@ -103,43 +303,51 @@ func main() {
 		}
 
 		ext := strings.ToLower(filepath.Ext(file))
-		if linterCmd, exists := linterMap[ext]; exists {
-			linterKey := strings.Join(linterCmd, " ")
-			linterGroups[linterKey] = append(linterGroups[linterKey], file)
+		if _, exists := linterMap[ext]; exists {
+			fileGroups[ext] = append(fileGroups[ext], file)
 		} else {
 			fmt.Printf("Warning: No linter configured for file %s (extension: %s)\n", file, ext)
 		}
 	}
 
 	// Check if any files will be linted
-	if len(linterGroups) == 0 {
+	if len(fileGroups) == 0 {
 		fmt.Println("No supported files provided, no files were linted")
 		os.Exit(0)
 	}
 
-	// Execute each linter with its respective files
+	// Execute linters for each file extension
 	exitCode := 0
-	for linterKey, fileList := range linterGroups {
-		linterCmd := strings.Fields(linterKey)
-		cmd := linterCmd[0]
-		args := append(linterCmd[1:], fileList...)
+	for ext, fileList := range fileGroups {
+		linterCommands := linterMap[ext]
+		
+		// Try each linter command in order until one is available
+		var executed bool
+		for _, linterCmd := range linterCommands {
+			if linterCmd.Available() {
+				cmd, args := linterCmd.Command(fileList)
+				
+				fmt.Printf("Running: %s %s\n", cmd, strings.Join(args, " "))
 
-		// Check if the linter is available, if not try uvx alternative
-		finalCmd, finalArgs := resolveLinterCommand(cmd, args)
+				execCmd := exec.Command(cmd, args...)
+				execCmd.Stdout = os.Stdout
+				execCmd.Stderr = os.Stderr
 
-		fmt.Printf("Running: %s %s\n", finalCmd, strings.Join(finalArgs, " "))
-
-		execCmd := exec.Command(finalCmd, finalArgs...)
-		execCmd.Stdout = os.Stdout
-		execCmd.Stderr = os.Stderr
-
-		if err := execCmd.Run(); err != nil {
-			if exitError, ok := err.(*exec.ExitError); ok {
-				exitCode = exitError.ExitCode()
-			} else {
-				fmt.Fprintf(os.Stderr, "Error executing %s: %v\n", finalCmd, err)
-				exitCode = 1
+				if err := execCmd.Run(); err != nil {
+					if exitError, ok := err.(*exec.ExitError); ok {
+						exitCode = exitError.ExitCode()
+					} else {
+						fmt.Fprintf(os.Stderr, "Error executing %s: %v\n", cmd, err)
+						exitCode = 1
+					}
+				}
+				executed = true
+				break // Stop after first available linter
 			}
+		}
+		
+		if !executed {
+			fmt.Printf("Warning: No available linter found for %s files\n", ext)
 		}
 	}
 
