@@ -26,32 +26,57 @@ var linterMap = map[string][]string{
 	".php":  {"php-cs-fixer", "fix", "--dry-run"},
 }
 
+// LinterAlternative represents a fallback option for a linter
+type LinterAlternative struct {
+	Available func() bool
+	Command   func(args []string) (string, []string)
+}
+
 // resolveLinterCommand checks if a linter is available, and if not, tries alternatives
 func resolveLinterCommand(cmd string, args []string) (string, []string) {
-	// Check if the command is available
+	// Check if the original command is available
 	if _, err := exec.LookPath(cmd); err == nil {
 		return cmd, args
 	}
 
-	// If ruff is not available, try uvx ruff, then fall back to black
-	if cmd == "ruff" {
-		if _, err := exec.LookPath("uvx"); err == nil {
-			// Use uvx to run ruff
-			return "uvx", append([]string{"ruff"}, args...)
-		}
+	// Define fallback strategies for each linter
+	fallbacks := map[string][]LinterAlternative{
+		"ruff": {
+			{
+				Available: func() bool {
+					_, err := exec.LookPath("uvx")
+					return err == nil
+				},
+				Command: func(args []string) (string, []string) {
+					return "uvx", append([]string{"ruff"}, args...)
+				},
+			},
+			{
+				Available: func() bool {
+					_, err := exec.LookPath("black")
+					return err == nil
+				},
+				Command: func(args []string) (string, []string) {
+					blackArgs := []string{"--check", "--diff"}
+					// Filter out ruff-specific arguments and add files
+					for _, arg := range args {
+						if arg == "check" {
+							continue // Skip ruff's "check" subcommand
+						}
+						blackArgs = append(blackArgs, arg)
+					}
+					return "black", blackArgs
+				},
+			},
+		},
+	}
 
-		// Fall back to black if available
-		if _, err := exec.LookPath("black"); err == nil {
-			// Convert ruff check arguments to black format arguments
-			blackArgs := []string{"--check", "--diff"}
-			// Filter out ruff-specific arguments and add files
-			for _, arg := range args {
-				if arg == "check" {
-					continue // Skip ruff's "check" subcommand
-				}
-				blackArgs = append(blackArgs, arg)
+	// Try each fallback in order
+	if alternatives, exists := fallbacks[cmd]; exists {
+		for _, alt := range alternatives {
+			if alt.Available() {
+				return alt.Command(args)
 			}
-			return "black", blackArgs
 		}
 	}
 
