@@ -220,7 +220,7 @@ func (tctx *TestContainerTestContext) linterIsNotInstalled(linter string) error 
 	return nil
 }
 
-func (tctx *TestContainerTestContext) lintairIsCalledWithFilenames(filePattern string) error {
+func (tctx *TestContainerTestContext) taidyIsCalledWithFilenames(filePattern string) error {
 	if tctx.currentContainer == nil {
 		// Set up container based on accumulated constraints
 		environment := tctx.determineEnvironment()
@@ -283,20 +283,20 @@ func (tctx *TestContainerTestContext) lintairIsCalledWithFilenames(filePattern s
 		return fmt.Errorf("no files found matching pattern: %s", filePattern)
 	}
 
-	// Run lintair with matching files
+	// Run taidy with matching files
 	filesStr := strings.Join(matchingFiles, " ")
-	cmd := fmt.Sprintf("/app/lintair %s", filesStr)
+	cmd := fmt.Sprintf("/app/taidy %s", filesStr)
 
 	result, err := tctx.currentContainer.ExecuteCommand(cmd)
 	if err != nil {
-		return fmt.Errorf("failed to execute lintair: %w", err)
+		return fmt.Errorf("failed to execute taidy: %w", err)
 	}
 
 	tctx.commandResult = result
 	return nil
 }
 
-func (tctx *TestContainerTestContext) lintairIsCalledWithTheFiles() error {
+func (tctx *TestContainerTestContext) taidyIsCalledWithTheFiles() error {
 	if tctx.currentContainer == nil {
 		return fmt.Errorf("no container available for testing")
 	}
@@ -305,37 +305,37 @@ func (tctx *TestContainerTestContext) lintairIsCalledWithTheFiles() error {
 		return fmt.Errorf("no test files available")
 	}
 
-	// Run lintair with all test files
+	// Run taidy with all test files
 	filesStr := strings.Join(tctx.testFiles, " ")
-	cmd := fmt.Sprintf("/app/lintair %s", filesStr)
+	cmd := fmt.Sprintf("/app/taidy %s", filesStr)
 
 	result, err := tctx.currentContainer.ExecuteCommand(cmd)
 	if err != nil {
-		return fmt.Errorf("failed to execute lintair: %w", err)
+		return fmt.Errorf("failed to execute taidy: %w", err)
 	}
 
 	tctx.commandResult = result
 	return nil
 }
 
-func (tctx *TestContainerTestContext) lintairIsCalledWithNoArguments() error {
+func (tctx *TestContainerTestContext) taidyIsCalledWithNoArguments() error {
 	if tctx.currentContainer == nil {
 		if err := tctx.SetupContainer("minimal"); err != nil {
 			return err
 		}
 	}
 
-	cmd := "/app/lintair"
+	cmd := "/app/taidy"
 	result, err := tctx.currentContainer.ExecuteCommand(cmd)
 	if err != nil {
-		return fmt.Errorf("failed to execute lintair: %w", err)
+		return fmt.Errorf("failed to execute taidy: %w", err)
 	}
 
 	tctx.commandResult = result
 	return nil
 }
 
-func (tctx *TestContainerTestContext) lintairIsCalledWithFilesThatDontExist() error {
+func (tctx *TestContainerTestContext) taidyIsCalledWithFilesThatDontExist() error {
 	if tctx.currentContainer == nil {
 		if err := tctx.SetupContainer("minimal"); err != nil {
 			return err
@@ -343,10 +343,10 @@ func (tctx *TestContainerTestContext) lintairIsCalledWithFilesThatDontExist() er
 	}
 
 	// Use non-existent file names
-	cmd := "/app/lintair nonexistent1.py nonexistent2.js"
+	cmd := "/app/taidy nonexistent1.py nonexistent2.js"
 	result, err := tctx.currentContainer.ExecuteCommand(cmd)
 	if err != nil {
-		return fmt.Errorf("failed to execute lintair: %w", err)
+		return fmt.Errorf("failed to execute taidy: %w", err)
 	}
 
 	tctx.commandResult = result
@@ -485,10 +485,10 @@ func (tctx *TestContainerTestContext) InitializeScenario(ctx *godog.ScenarioCont
 	ctx.Step(`^But ([a-zA-Z0-9_-]+) is installed$`, tctx.linterIsInstalled)
 
 	// CLI execution steps
-	ctx.Step(`^lintair is called with ([a-zA-Z]+) filenames$`, tctx.lintairIsCalledWithFilenames)
-	ctx.Step(`^lintair is called with the files$`, tctx.lintairIsCalledWithTheFiles)
-	ctx.Step(`^lintair is called with no arguments$`, tctx.lintairIsCalledWithNoArguments)
-	ctx.Step(`^lintair is called with files that don't exist$`, tctx.lintairIsCalledWithFilesThatDontExist)
+	ctx.Step(`^taidy is called with ([a-zA-Z]+) filenames$`, tctx.taidyIsCalledWithFilenames)
+	ctx.Step(`^taidy is called with the files$`, tctx.taidyIsCalledWithTheFiles)
+	ctx.Step(`^taidy is called with no arguments$`, tctx.taidyIsCalledWithNoArguments)
+	ctx.Step(`^taidy is called with files that don't exist$`, tctx.taidyIsCalledWithFilesThatDontExist)
 
 	// Assertion steps
 	ctx.Step(`^the exit code should be (\d+)$`, func(codeStr string) error {

@@ -1,4 +1,4 @@
-module lintair-tests
+module taidy-tests
 
 go 1.24.4
 

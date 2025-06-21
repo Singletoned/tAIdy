@@ -45,7 +45,7 @@ func (tcm *TestContainerManager) Close() error {
 }
 
 // GetDockerfileContent generates dynamic Dockerfile content based on environment
-// Build lintair binary inside container to ensure Linux compatibility
+// Build taidy binary inside container to ensure Linux compatibility
 func (tcm *TestContainerManager) GetDockerfileContent(environment string) (string, error) {
 	switch environment {
 	case "python311":
@@ -53,70 +53,70 @@ func (tcm *TestContainerManager) GetDockerfileContent(environment string) (strin
 COPY . /src
 WORKDIR /src
 RUN go mod download
-RUN go build -o lintair main.go
+RUN go build -o taidy main.go
 
 FROM python:3.11-slim
 RUN pip install ruff
-COPY --from=builder /src/lintair /app/lintair
-RUN chmod +x /app/lintair
+COPY --from=builder /src/taidy /app/taidy
+RUN chmod +x /app/taidy
 WORKDIR /tmp`, nil
 	case "python311-uv":
 		return `FROM golang:1.24-alpine AS builder
 COPY . /src
 WORKDIR /src
 RUN go mod download
-RUN go build -o lintair main.go
+RUN go build -o taidy main.go
 
 FROM python:3.11-slim
 RUN pip install uv
-COPY --from=builder /src/lintair /app/lintair
-RUN chmod +x /app/lintair
+COPY --from=builder /src/taidy /app/taidy
+RUN chmod +x /app/taidy
 WORKDIR /tmp`, nil
 	case "python311-black":
 		return `FROM golang:1.24-alpine AS builder
 COPY . /src
 WORKDIR /src
 RUN go mod download
-RUN go build -o lintair main.go
+RUN go build -o taidy main.go
 
 FROM python:3.11-slim
 RUN pip install black
-COPY --from=builder /src/lintair /app/lintair
-RUN chmod +x /app/lintair
+COPY --from=builder /src/taidy /app/taidy
+RUN chmod +x /app/taidy
 WORKDIR /tmp`, nil
 	case "node18":
 		return `FROM golang:1.24-alpine AS builder
 COPY . /src
 WORKDIR /src
 RUN go mod download
-RUN go build -o lintair main.go
+RUN go build -o taidy main.go
 
 FROM node:18-slim
 RUN npm install -g prettier
-COPY --from=builder /src/lintair /app/lintair
-RUN chmod +x /app/lintair
+COPY --from=builder /src/taidy /app/taidy
+RUN chmod +x /app/taidy
 WORKDIR /tmp`, nil
 	case "go121":
 		return `FROM golang:1.24-alpine AS builder
 COPY . /src
 WORKDIR /src
 RUN go mod download
-RUN go build -o lintair main.go
+RUN go build -o taidy main.go
 
 FROM golang:1.24-alpine
-COPY --from=builder /src/lintair /app/lintair
-RUN chmod +x /app/lintair
+COPY --from=builder /src/taidy /app/taidy
+RUN chmod +x /app/taidy
 WORKDIR /tmp`, nil
 	case "minimal":
 		return `FROM golang:1.24-alpine AS builder
 COPY . /src
 WORKDIR /src
 RUN go mod download
-RUN go build -o lintair main.go
+RUN go build -o taidy main.go
 
 FROM alpine:latest
-COPY --from=builder /src/lintair /app/lintair
-RUN chmod +x /app/lintair
+COPY --from=builder /src/taidy /app/taidy
+RUN chmod +x /app/taidy
 WORKDIR /tmp`, nil
 	default:
 		return "", fmt.Errorf("unknown environment: %s", environment)

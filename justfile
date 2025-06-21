@@ -1,4 +1,4 @@
-# LintAir Justfile
+# Taidy Justfile
 
 # Default recipe
 default: test
@@ -15,18 +15,57 @@ format := env_var_or_default('FORMAT', 'pretty')
 
 # Build the main binary (same as Linux for consistency)
 build:
-    @echo "{{blue}}[INFO]{{nc}} Building lintair binary..."
-    go build -o lintair
-    @echo "{{green}}[SUCCESS]{{nc}} Built lintair binary"
+    @echo "{{blue}}[INFO]{{nc}} Building taidy binary..."
+    go build -o taidy
+    @echo "{{green}}[SUCCESS]{{nc}} Built taidy binary"
 
 # Build Linux binary for Docker containers (same as main binary)
 build-linux:
     @echo "{{blue}}[INFO]{{nc}} Building Linux binary for Docker containers..."
-    env GOOS=linux GOARCH=amd64 go build -o lintair
-    @echo "{{green}}[SUCCESS]{{nc}} Built lintair binary"
+    env GOOS=linux GOARCH=amd64 go build -o taidy
+    @echo "{{green}}[SUCCESS]{{nc}} Built taidy binary"
 
 # Build both binaries (now just one build)
 build-all: build
+
+# Build for all platforms
+build-cross-platform: clean
+    @echo "{{blue}}[INFO]{{nc}} Building for multiple platforms..."
+    @mkdir -p dist
+    env GOOS=linux GOARCH=amd64 go build -ldflags="-X main.Version={{VERSION}} -X main.BuildDate={{BUILDDATE}}" -o dist/taidy-linux-amd64
+    env GOOS=linux GOARCH=arm64 go build -ldflags="-X main.Version={{VERSION}} -X main.BuildDate={{BUILDDATE}}" -o dist/taidy-linux-arm64
+    env GOOS=darwin GOARCH=amd64 go build -ldflags="-X main.Version={{VERSION}} -X main.BuildDate={{BUILDDATE}}" -o dist/taidy-darwin-amd64  
+    env GOOS=darwin GOARCH=arm64 go build -ldflags="-X main.Version={{VERSION}} -X main.BuildDate={{BUILDDATE}}" -o dist/taidy-darwin-arm64
+    env GOOS=windows GOARCH=amd64 go build -ldflags="-X main.Version={{VERSION}} -X main.BuildDate={{BUILDDATE}}" -o dist/taidy-windows-amd64.exe
+    @echo "{{green}}[SUCCESS]{{nc}} Built binaries for all platforms in dist/"
+
+# Variables for release builds
+VERSION := env_var_or_default('VERSION', 'dev')
+BUILDDATE := `date -u +%Y-%m-%dT%H:%M:%SZ`
+GITCOMMIT := `git rev-parse --short HEAD 2>/dev/null || echo "unknown"`
+
+# Build with version information
+build-release:
+    @echo "{{blue}}[INFO]{{nc}} Building release version {{VERSION}}..."
+    go build -ldflags="-X main.Version={{VERSION}} -X main.GitCommit={{GITCOMMIT}} -X main.BuildDate={{BUILDDATE}}" -o taidy
+    @echo "{{green}}[SUCCESS]{{nc}} Built taidy {{VERSION}}"
+
+# Create release archives
+package: build-cross-platform
+    @echo "{{blue}}[INFO]{{nc}} Packaging releases..."
+    cd dist && tar -czf taidy-{{VERSION}}-linux-amd64.tar.gz taidy-linux-amd64
+    cd dist && tar -czf taidy-{{VERSION}}-linux-arm64.tar.gz taidy-linux-arm64
+    cd dist && tar -czf taidy-{{VERSION}}-darwin-amd64.tar.gz taidy-darwin-amd64
+    cd dist && tar -czf taidy-{{VERSION}}-darwin-arm64.tar.gz taidy-darwin-arm64
+    cd dist && zip taidy-{{VERSION}}-windows-amd64.zip taidy-windows-amd64.exe
+    @echo "{{green}}[SUCCESS]{{nc}} Created release packages in dist/"
+
+# Clean build artifacts
+clean:
+    @echo "{{blue}}[INFO]{{nc}} Cleaning build artifacts..."
+    rm -rf dist/
+    rm -f taidy lintair
+    @echo "{{green}}[SUCCESS]{{nc}} Cleaned build artifacts"
 
 # Check if Docker is running
 check-docker:
@@ -49,8 +88,8 @@ test-feature feature: build-linux check-docker
 # Build test binary
 build-tests: build-linux
     @echo "{{blue}}[INFO]{{nc}} Building test binary..."
-    cd tests && go build -o lintair-tests
-    @echo "{{green}}[SUCCESS]{{nc}} Built test binary at tests/lintair-tests"
+    cd tests && go build -o taidy-tests
+    @echo "{{green}}[SUCCESS]{{nc}} Built test binary at tests/taidy-tests"
 
 # Run tests and generate coverage (if supported)
 test-coverage: build-linux check-docker

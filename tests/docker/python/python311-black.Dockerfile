@@ -30,9 +30,9 @@ RUN ln -sf /usr/bin/python3.11 /usr/bin/python \
 # Install black (but NOT ruff or uv)
 RUN python3.11 -m pip install --no-cache-dir black
 
-# Copy lintair binary
-COPY lintair /app/lintair
-RUN chmod +x /app/lintair
+# Copy taidy binary
+COPY taidy /app/taidy
+RUN chmod +x /app/taidy
 
 # Create app directory
 WORKDIR /test_files

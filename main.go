@@ -8,6 +8,13 @@ import (
 	"strings"
 )
 
+// Version information - can be overridden at build time
+var (
+	Version   = "dev"
+	GitCommit = "unknown"
+	BuildDate = "unknown"
+)
+
 // LinterCommand represents a linter command that can be tried
 type LinterCommand struct {
 	Available func() bool
@@ -284,10 +291,53 @@ var linterMap = map[string][]LinterCommand{
 	},
 }
 
+func showUsage() {
+	fmt.Fprintf(os.Stderr, "Usage: %s <file1> <file2> ...\n", os.Args[0])
+	fmt.Fprintf(os.Stderr, "\nFlags:\n")
+	fmt.Fprintf(os.Stderr, "  -h, --help     Show this help message\n")
+	fmt.Fprintf(os.Stderr, "  -v, --version  Show version information\n")
+}
+
+func showHelp() {
+	fmt.Printf("Taidy - Smart linter/formatter with automatic tool detection\n\n")
+	showUsage()
+	fmt.Printf("\nSupported file types and linters:\n")
+	fmt.Printf("  Python:     ruff → uvx ruff → black → flake8 → pylint → python -m py_compile\n")
+	fmt.Printf("  JavaScript: eslint → prettier → node --check\n")
+	fmt.Printf("  TypeScript: eslint → tsc --noEmit → prettier\n")
+	fmt.Printf("  Go:         gofmt\n")
+	fmt.Printf("  Rust:       rustfmt\n")
+	fmt.Printf("  Ruby:       rubocop\n")
+	fmt.Printf("  PHP:        php-cs-fixer\n")
+	fmt.Printf("  JSON/CSS:   prettier\n")
+	fmt.Printf("\nTaidy automatically detects which linters are available and uses the best one for each file type.\n")
+}
+
+func showVersion() {
+	fmt.Printf("Taidy %s\n", Version)
+	if GitCommit != "unknown" {
+		fmt.Printf("Git commit: %s\n", GitCommit)
+	}
+	if BuildDate != "unknown" {
+		fmt.Printf("Built: %s\n", BuildDate)
+	}
+}
+
 func main() {
 	if len(os.Args) < 2 {
-		fmt.Fprintf(os.Stderr, "Usage: %s <file1> <file2> ...\n", os.Args[0])
+		showUsage()
 		os.Exit(1)
+	}
+
+	// Handle version and help flags
+	arg := os.Args[1]
+	switch arg {
+	case "-v", "--version":
+		showVersion()
+		os.Exit(0)
+	case "-h", "--help":
+		showHelp()
+		os.Exit(0)
 	}
 
 	files := os.Args[1:]
@@ -320,13 +370,13 @@ func main() {
 	exitCode := 0
 	for ext, fileList := range fileGroups {
 		linterCommands := linterMap[ext]
-		
+
 		// Try each linter command in order until one is available
 		var executed bool
 		for _, linterCmd := range linterCommands {
 			if linterCmd.Available() {
 				cmd, args := linterCmd.Command(fileList)
-				
+
 				fmt.Printf("Running: %s %s\n", cmd, strings.Join(args, " "))
 
 				execCmd := exec.Command(cmd, args...)
@@ -345,7 +395,7 @@ func main() {
 				break // Stop after first available linter
 			}
 		}
-		
+
 		if !executed {
 			fmt.Printf("Warning: No available linter found for %s files\n", ext)
 		}
