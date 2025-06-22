@@ -1,8 +1,9 @@
 """
-Sample Python file for testing lintair functionality.
+Sample Python file for testing taidy functionality.
 """
 import os
 import sys
+import json
 
 
 def calculate_sum(numbers):
@@ -18,6 +19,11 @@ def format_greeting(name, title=None):
     if title:
         return f"Hello, {title} {name}!"
     return f"Hello, {name}!"
+
+
+def unused_function(x,y):
+    result=x+y
+    return result
 
 
 class Calculator:
@@ -37,10 +43,16 @@ class Calculator:
         result = a * b
         self.history.append(f"{a} * {b} = {result}")
         return result
+    
+    def divide(self,a,b):
+        if b==0:
+            return None
+        return a/b
 
 
 if __name__ == "__main__":
     calc = Calculator()
     print(calc.add(5, 3))
     print(calc.multiply(4, 2))
+    unused_var = "this is never used"
     print("History:", calc.history)
