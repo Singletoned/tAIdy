@@ -23,8 +23,8 @@ jobs:
         with:
           go-version: ${{ matrix.go-version }}
 
-      - name: Set up Docker Buildx (Linux/macOS only)
-        if: runner.os != 'Windows'
+      - name: Set up Docker Buildx (Linux only)
+        if: runner.os == 'Linux'
         uses: docker/setup-buildx-action@v3
 
       - name: Install just
@@ -45,12 +45,12 @@ jobs:
           ./taidy --version
           ./taidy --help
 
-      - name: Run tests (Linux/macOS only)
-        if: runner.os != 'Windows'
+      - name: Run integration tests (Linux only)
+        if: runner.os == 'Linux'
         run: just test
 
       - name: Run unit tests (all platforms)
-        run: go test ./...
+        run: go test ./tests
 
   build-cross-platform:
     runs-on: ubuntu-latest

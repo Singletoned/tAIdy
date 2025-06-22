@@ -99,8 +99,8 @@ For example, with a Python file:
 ### Requirements
 
 - Go 1.24+
-- [just](https://github.com/casey/just) (optional, for build scripts)
-- Docker (for tests)
+- [just](https://github.com/casey/just) (for build scripts)
+- Docker (for integration tests)
 
 ### Building
 
@@ -113,6 +113,9 @@ just build-all
 
 # Run tests
 just test
+
+# Run unit tests only (no Docker required)
+go test ./...
 
 # Development workflow
 just dev
