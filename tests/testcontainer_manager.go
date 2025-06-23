@@ -65,6 +65,12 @@ RUN pip install black
 COPY taidy /app/taidy
 RUN chmod +x /app/taidy
 WORKDIR /tmp`, nil
+	case "python311-sqlfluff":
+		return `FROM python:3.11-slim
+RUN pip install sqlfluff
+COPY taidy /app/taidy
+RUN chmod +x /app/taidy
+WORKDIR /tmp`, nil
 	case "node18":
 		return `FROM node:18-slim
 RUN npm install -g prettier

@@ -298,6 +298,26 @@ var linterMap = map[string][]LinterCommand{
 			},
 		},
 	},
+	".sql": {
+		{
+			Available: func() bool {
+				_, err := exec.LookPath("sqlfluff")
+				return err == nil
+			},
+			Command: func(files []string) (string, []string) {
+				return "sqlfluff", append([]string{"lint", "--quiet", "--dialect", "ansi"}, files...)
+			},
+		},
+		{
+			Available: func() bool {
+				_, err := exec.LookPath("uvx")
+				return err == nil
+			},
+			Command: func(files []string) (string, []string) {
+				return "uvx", append([]string{"sqlfluff", "lint", "--quiet", "--dialect", "ansi"}, files...)
+			},
+		},
+	},
 }
 
 // FormatterConfig maps file extensions to sequences of formatter commands to try in order
@@ -474,6 +494,26 @@ var formatterMap = map[string][]LinterCommand{
 			},
 		},
 	},
+	".sql": {
+		{
+			Available: func() bool {
+				_, err := exec.LookPath("sqlfluff")
+				return err == nil
+			},
+			Command: func(files []string) (string, []string) {
+				return "sqlfluff", append([]string{"format", "--dialect", "ansi"}, files...)
+			},
+		},
+		{
+			Available: func() bool {
+				_, err := exec.LookPath("uvx")
+				return err == nil
+			},
+			Command: func(files []string) (string, []string) {
+				return "uvx", append([]string{"sqlfluff", "format", "--dialect", "ansi"}, files...)
+			},
+		},
+	},
 }
 
 func showUsage() {
@@ -498,6 +538,7 @@ func showHelp() {
 	fmt.Printf("  Rust:       rustfmt\n")
 	fmt.Printf("  Ruby:       rubocop\n")
 	fmt.Printf("  PHP:        php-cs-fixer\n")
+	fmt.Printf("  SQL:        sqlfluff → uvx sqlfluff\n")
 	fmt.Printf("  JSON/CSS:   prettier\n")
 	fmt.Printf("\nTaidy automatically detects which linters are available and uses the best one for each file type.\n")
 }
