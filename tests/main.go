@@ -4,7 +4,6 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/cucumber/godog"
@@ -25,11 +24,11 @@ func init() {
 
 func InitializeTestSuite(ctx *godog.TestSuiteContext) {
 	ctx.BeforeSuite(func() {
-		log.Println("Starting BDD test suite...")
+		// Test suite starting silently
 	})
 
 	ctx.AfterSuite(func() {
-		log.Println("BDD test suite completed.")
+		// Test suite completed silently
 	})
 }
 

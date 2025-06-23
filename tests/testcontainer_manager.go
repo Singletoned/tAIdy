@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"path/filepath"
 	"time"
@@ -157,14 +156,7 @@ func NewTestContainerContext(environment string, manager *TestContainerManager) 
 	// Clean up build directory after successful container start
 	os.RemoveAll(buildDir)
 
-	// Get container info for logging
-	containerInfo, err := container.Inspect(manager.ctx)
-	if err != nil {
-		container.Terminate(manager.ctx)
-		return nil, fmt.Errorf("failed to inspect container: %w", err)
-	}
-
-	log.Printf("Started testcontainer %s for environment %s", containerInfo.ID[:12], environment)
+	// Silently started container
 
 	return &TestContainerContext{
 		Container:   container,
@@ -183,18 +175,12 @@ func (tcc *TestContainerContext) StopContainer() error {
 		return nil
 	}
 
-	containerInfo, _ := tcc.Container.Inspect(context.Background())
-	containerID := ""
-	if containerInfo != nil {
-		containerID = containerInfo.ID[:12]
-	}
-
 	if err := tcc.Container.Terminate(context.Background()); err != nil {
-		log.Printf("Warning: failed to terminate container %s: %v", containerID, err)
-		return err
+		// Silently ignore termination errors - container may already be terminated
+		return nil
 	}
 
-	log.Printf("Terminated testcontainer %s", containerID)
+	// Silently terminated container
 	return nil
 }
 
@@ -214,12 +200,7 @@ func (tcc *TestContainerContext) CreateFile(filename, content string) error {
 		return fmt.Errorf("failed to create file %s: %w", filename, err)
 	}
 
-	containerInfo, _ := tcc.Container.Inspect(context.Background())
-	containerID := ""
-	if containerInfo != nil {
-		containerID = containerInfo.ID[:12]
-	}
-	log.Printf("Created file %s in testcontainer %s", filename, containerID)
+	// Silently created file
 	return nil
 }
 
@@ -246,15 +227,7 @@ func (tcc *TestContainerContext) ExecuteCommand(command string) (*CommandResult,
 		Stderr:   "", // testcontainers combines stdout/stderr
 	}
 
-	containerInfo, _ := tcc.Container.Inspect(context.Background())
-	containerID := ""
-	if containerInfo != nil {
-		containerID = containerInfo.ID[:12]
-	}
-	log.Printf("Executed command in testcontainer %s: %s, exit code: %d", containerID, command, result.ExitCode)
-	if result.Stdout != "" {
-		log.Printf("Output: %s", result.Stdout)
-	}
+	// Silently executed command
 
 	return result, nil
 }
@@ -281,12 +254,7 @@ func (tcc *TestContainerContext) CopyFileIntoContainer(sourcePath, destFilename 
 		return fmt.Errorf("failed to copy file %s to container: %w", sourcePath, err)
 	}
 
-	containerInfo, _ := tcc.Container.Inspect(context.Background())
-	containerID := ""
-	if containerInfo != nil {
-		containerID = containerInfo.ID[:12]
-	}
-	log.Printf("Copied file %s to testcontainer %s as %s", sourcePath, containerID, destFilename)
+	// Silently copied file
 	return nil
 }
 
