@@ -45,77 +45,41 @@ func (tcm *TestContainerManager) Close() error {
 }
 
 // GetDockerfileContent generates dynamic Dockerfile content based on environment
-// Build taidy binary inside container to ensure Linux compatibility
+// Expects pre-built taidy binary to be copied in
 func (tcm *TestContainerManager) GetDockerfileContent(environment string) (string, error) {
 	switch environment {
 	case "python311":
-		return `FROM golang:1.24-alpine AS builder
-COPY . /src
-WORKDIR /src
-RUN go mod download
-RUN go build -o taidy main.go
-
-FROM python:3.11-slim
+		return `FROM python:3.11-slim
 RUN pip install ruff
-COPY --from=builder /src/taidy /app/taidy
+COPY taidy /app/taidy
 RUN chmod +x /app/taidy
 WORKDIR /tmp`, nil
 	case "python311-uv":
-		return `FROM golang:1.24-alpine AS builder
-COPY . /src
-WORKDIR /src
-RUN go mod download
-RUN go build -o taidy main.go
-
-FROM python:3.11-slim
+		return `FROM python:3.11-slim
 RUN pip install uv
-COPY --from=builder /src/taidy /app/taidy
+COPY taidy /app/taidy
 RUN chmod +x /app/taidy
 WORKDIR /tmp`, nil
 	case "python311-black":
-		return `FROM golang:1.24-alpine AS builder
-COPY . /src
-WORKDIR /src
-RUN go mod download
-RUN go build -o taidy main.go
-
-FROM python:3.11-slim
+		return `FROM python:3.11-slim
 RUN pip install black
-COPY --from=builder /src/taidy /app/taidy
+COPY taidy /app/taidy
 RUN chmod +x /app/taidy
 WORKDIR /tmp`, nil
 	case "node18":
-		return `FROM golang:1.24-alpine AS builder
-COPY . /src
-WORKDIR /src
-RUN go mod download
-RUN go build -o taidy main.go
-
-FROM node:18-slim
+		return `FROM node:18-slim
 RUN npm install -g prettier
-COPY --from=builder /src/taidy /app/taidy
+COPY taidy /app/taidy
 RUN chmod +x /app/taidy
 WORKDIR /tmp`, nil
 	case "go121":
-		return `FROM golang:1.24-alpine AS builder
-COPY . /src
-WORKDIR /src
-RUN go mod download
-RUN go build -o taidy main.go
-
-FROM golang:1.24-alpine
-COPY --from=builder /src/taidy /app/taidy
+		return `FROM golang:1.24-alpine
+COPY taidy /app/taidy
 RUN chmod +x /app/taidy
 WORKDIR /tmp`, nil
 	case "minimal":
-		return `FROM golang:1.24-alpine AS builder
-COPY . /src
-WORKDIR /src
-RUN go mod download
-RUN go build -o taidy main.go
-
-FROM alpine:latest
-COPY --from=builder /src/taidy /app/taidy
+		return `FROM alpine:latest
+COPY taidy /app/taidy
 RUN chmod +x /app/taidy
 WORKDIR /tmp`, nil
 	default:
@@ -148,40 +112,36 @@ func NewTestContainerContext(environment string, manager *TestContainerManager) 
 		return nil, fmt.Errorf("failed to write Dockerfile: %w", err)
 	}
 
-	// Copy source files to build context (go.mod, main.go, and go.sum if it exists)
-	sourceFiles := []string{
-		"../go.mod",
-		"../main.go",
+	// Copy pre-built taidy binary to build context
+	// The binary should be built for Linux before running tests
+	binaryPath := "../taidy"
+	if _, err := os.Stat(binaryPath); err != nil {
+		return nil, fmt.Errorf("taidy binary not found at %s. Please run 'env GOOS=linux GOARCH=amd64 go build -o taidy' first", binaryPath)
 	}
 
-	// Add go.sum if it exists (minimal apps might not have one)
-	if _, err := os.Stat("../go.sum"); err == nil {
-		sourceFiles = append(sourceFiles, "../go.sum")
+	content, err := os.ReadFile(binaryPath)
+	if err != nil {
+		return nil, fmt.Errorf("failed to read taidy binary: %w", err)
 	}
 
-	for _, srcFile := range sourceFiles {
-		if _, err := os.Stat(srcFile); err == nil {
-			content, err := os.ReadFile(srcFile)
-			if err != nil {
-				return nil, fmt.Errorf("failed to read source file %s: %w", srcFile, err)
-			}
-			filename := filepath.Base(srcFile)
-			if err := os.WriteFile(filepath.Join(buildDir, filename), content, 0644); err != nil {
-				return nil, fmt.Errorf("failed to write source file %s: %w", filename, err)
-			}
-		} else {
-			log.Printf("Warning: source file not found at %s", srcFile)
-		}
+	if err := os.WriteFile(filepath.Join(buildDir, "taidy"), content, 0755); err != nil {
+		return nil, fmt.Errorf("failed to copy taidy binary to build context: %w", err)
 	}
 
-	// Create container request
+	// Create container request with optimizations
 	req := testcontainers.ContainerRequest{
 		FromDockerfile: testcontainers.FromDockerfile{
 			Context:    buildDir,
 			Dockerfile: "Dockerfile",
+			// Cache intermediate layers for faster builds
+			BuildArgs: map[string]*string{},
 		},
 		Cmd:        []string{"sleep", "300"},
-		WaitingFor: wait.ForExec([]string{"echo", "ready"}).WithStartupTimeout(60 * time.Second), // Wait for container to be ready
+		WaitingFor: wait.ForExec([]string{"echo", "ready"}).WithStartupTimeout(45 * time.Second), // Reduced timeout
+		Labels: map[string]string{
+			"taidy.environment": environment,
+			"taidy.test":        "true",
+		},
 	}
 
 	// Start container

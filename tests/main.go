@@ -13,10 +13,10 @@ import (
 
 var opts = godog.Options{
 	Output:      colors.Colored(os.Stdout),
-	Format:      "pretty", // or "progress"
+	Format:      "progress", // better for parallel execution
 	Paths:       []string{"features"},
 	Randomize:   0, // randomize scenario execution order
-	Concurrency: 2, // run scenarios in parallel
+	Concurrency: 4, // run scenarios in parallel
 }
 
 func init() {
