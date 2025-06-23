@@ -21,6 +21,15 @@ type LinterCommand struct {
 	Command   func(files []string) (string, []string)
 }
 
+// Mode represents the operation mode
+type Mode int
+
+const (
+	ModeBoth   Mode = iota // Both lint and format
+	ModeLint               // Lint only
+	ModeFormat             // Format only
+)
+
 // LinterConfig maps file extensions to sequences of linter commands to try in order
 var linterMap = map[string][]LinterCommand{
 	".py": {
@@ -291,8 +300,188 @@ var linterMap = map[string][]LinterCommand{
 	},
 }
 
+// FormatterConfig maps file extensions to sequences of formatter commands to try in order
+var formatterMap = map[string][]LinterCommand{
+	".py": {
+		{
+			Available: func() bool {
+				_, err := exec.LookPath("ruff")
+				return err == nil
+			},
+			Command: func(files []string) (string, []string) {
+				return "ruff", append([]string{"format"}, files...)
+			},
+		},
+		{
+			Available: func() bool {
+				_, err := exec.LookPath("uvx")
+				return err == nil
+			},
+			Command: func(files []string) (string, []string) {
+				return "uvx", append([]string{"ruff", "format"}, files...)
+			},
+		},
+		{
+			Available: func() bool {
+				_, err := exec.LookPath("black")
+				return err == nil
+			},
+			Command: func(files []string) (string, []string) {
+				return "black", files
+			},
+		},
+	},
+	".js": {
+		{
+			Available: func() bool {
+				_, err := exec.LookPath("prettier")
+				return err == nil
+			},
+			Command: func(files []string) (string, []string) {
+				return "prettier", append([]string{"--write"}, files...)
+			},
+		},
+	},
+	".jsx": {
+		{
+			Available: func() bool {
+				_, err := exec.LookPath("prettier")
+				return err == nil
+			},
+			Command: func(files []string) (string, []string) {
+				return "prettier", append([]string{"--write"}, files...)
+			},
+		},
+	},
+	".ts": {
+		{
+			Available: func() bool {
+				_, err := exec.LookPath("prettier")
+				return err == nil
+			},
+			Command: func(files []string) (string, []string) {
+				return "prettier", append([]string{"--write"}, files...)
+			},
+		},
+	},
+	".tsx": {
+		{
+			Available: func() bool {
+				_, err := exec.LookPath("prettier")
+				return err == nil
+			},
+			Command: func(files []string) (string, []string) {
+				return "prettier", append([]string{"--write"}, files...)
+			},
+		},
+	},
+	".json": {
+		{
+			Available: func() bool {
+				_, err := exec.LookPath("prettier")
+				return err == nil
+			},
+			Command: func(files []string) (string, []string) {
+				return "prettier", append([]string{"--write"}, files...)
+			},
+		},
+	},
+	".css": {
+		{
+			Available: func() bool {
+				_, err := exec.LookPath("prettier")
+				return err == nil
+			},
+			Command: func(files []string) (string, []string) {
+				return "prettier", append([]string{"--write"}, files...)
+			},
+		},
+	},
+	".scss": {
+		{
+			Available: func() bool {
+				_, err := exec.LookPath("prettier")
+				return err == nil
+			},
+			Command: func(files []string) (string, []string) {
+				return "prettier", append([]string{"--write"}, files...)
+			},
+		},
+	},
+	".html": {
+		{
+			Available: func() bool {
+				_, err := exec.LookPath("prettier")
+				return err == nil
+			},
+			Command: func(files []string) (string, []string) {
+				return "prettier", append([]string{"--write"}, files...)
+			},
+		},
+	},
+	".md": {
+		{
+			Available: func() bool {
+				_, err := exec.LookPath("prettier")
+				return err == nil
+			},
+			Command: func(files []string) (string, []string) {
+				return "prettier", append([]string{"--write"}, files...)
+			},
+		},
+	},
+	".go": {
+		{
+			Available: func() bool {
+				_, err := exec.LookPath("gofmt")
+				return err == nil
+			},
+			Command: func(files []string) (string, []string) {
+				return "gofmt", append([]string{"-w"}, files...)
+			},
+		},
+	},
+	".rs": {
+		{
+			Available: func() bool {
+				_, err := exec.LookPath("rustfmt")
+				return err == nil
+			},
+			Command: func(files []string) (string, []string) {
+				return "rustfmt", files
+			},
+		},
+	},
+	".rb": {
+		{
+			Available: func() bool {
+				_, err := exec.LookPath("rubocop")
+				return err == nil
+			},
+			Command: func(files []string) (string, []string) {
+				return "rubocop", append([]string{"-a"}, files...)
+			},
+		},
+	},
+	".php": {
+		{
+			Available: func() bool {
+				_, err := exec.LookPath("php-cs-fixer")
+				return err == nil
+			},
+			Command: func(files []string) (string, []string) {
+				return "php-cs-fixer", append([]string{"fix"}, files...)
+			},
+		},
+	},
+}
+
 func showUsage() {
-	fmt.Fprintf(os.Stderr, "Usage: %s <file1> <file2> ...\n", os.Args[0])
+	fmt.Fprintf(os.Stderr, "Usage: %s [command] <file1> <file2> ...\n", os.Args[0])
+	fmt.Fprintf(os.Stderr, "\nCommands:\n")
+	fmt.Fprintf(os.Stderr, "  lint     Lint files only (no formatting)\n")
+	fmt.Fprintf(os.Stderr, "  format   Format files only (no linting)\n")
+	fmt.Fprintf(os.Stderr, "  (none)   Both lint and format (default)\n")
 	fmt.Fprintf(os.Stderr, "\nFlags:\n")
 	fmt.Fprintf(os.Stderr, "  -h, --help     Show this help message\n")
 	fmt.Fprintf(os.Stderr, "  -v, --version  Show version information\n")
@@ -323,6 +512,95 @@ func showVersion() {
 	}
 }
 
+func processFiles(files []string, mode Mode) int {
+	// Group files by their file extension
+	fileGroups := make(map[string][]string)
+
+	for _, file := range files {
+		// Check if file exists
+		if _, err := os.Stat(file); os.IsNotExist(err) {
+			fmt.Printf("Warning: File %s does not exist, skipping\n", file)
+			continue
+		}
+
+		ext := strings.ToLower(filepath.Ext(file))
+
+		// Check if we have configuration for this extension based on mode
+		var hasConfig bool
+		switch mode {
+		case ModeLint:
+			_, hasConfig = linterMap[ext]
+		case ModeFormat:
+			_, hasConfig = formatterMap[ext]
+		case ModeBoth:
+			_, hasLinter := linterMap[ext]
+			_, hasFormatter := formatterMap[ext]
+			hasConfig = hasLinter || hasFormatter
+		}
+
+		if hasConfig {
+			fileGroups[ext] = append(fileGroups[ext], file)
+		} else {
+			fmt.Printf("Warning: No linter configured for file %s (extension: %s)\n", file, ext)
+		}
+	}
+
+	// Check if any files will be processed
+	if len(fileGroups) == 0 {
+		fmt.Println("No supported files provided, no files were linted")
+		return 0
+	}
+
+	// Execute linters/formatters for each file extension
+	exitCode := 0
+	for ext, fileList := range fileGroups {
+		if mode == ModeLint || mode == ModeBoth {
+			if linterCommands, exists := linterMap[ext]; exists {
+				executed := executeLinters(linterCommands, fileList)
+				if !executed {
+					fmt.Printf("Warning: No available linter found for %s files\n", ext)
+				}
+			}
+		}
+
+		if mode == ModeFormat || mode == ModeBoth {
+			if formatterCommands, exists := formatterMap[ext]; exists {
+				executed := executeLinters(formatterCommands, fileList)
+				if !executed {
+					fmt.Printf("Warning: No available formatter found for %s files\n", ext)
+				}
+			}
+		}
+	}
+
+	return exitCode
+}
+
+func executeLinters(commands []LinterCommand, fileList []string) bool {
+	// Try each command in order until one is available
+	for _, linterCmd := range commands {
+		if linterCmd.Available() {
+			cmd, args := linterCmd.Command(fileList)
+
+			fmt.Printf("Running: %s %s\n", cmd, strings.Join(args, " "))
+
+			execCmd := exec.Command(cmd, args...)
+			execCmd.Stdout = os.Stdout
+			execCmd.Stderr = os.Stderr
+
+			if err := execCmd.Run(); err != nil {
+				if exitError, ok := err.(*exec.ExitError); ok {
+					_ = exitError.ExitCode() // We could track this but for now just continue
+				} else {
+					fmt.Fprintf(os.Stderr, "Error executing %s: %v\n", cmd, err)
+				}
+			}
+			return true // Executed successfully
+		}
+	}
+	return false // No available command found
+}
+
 func main() {
 	if len(os.Args) < 2 {
 		showUsage()
@@ -340,66 +618,31 @@ func main() {
 		os.Exit(0)
 	}
 
-	files := os.Args[1:]
+	// Parse command and files
+	var mode Mode = ModeBoth
+	var files []string
 
-	// Group files by their file extension
-	fileGroups := make(map[string][]string)
-
-	for _, file := range files {
-		// Check if file exists
-		if _, err := os.Stat(file); os.IsNotExist(err) {
-			fmt.Printf("Warning: File %s does not exist, skipping\n", file)
-			continue
+	switch os.Args[1] {
+	case "lint":
+		mode = ModeLint
+		if len(os.Args) < 3 {
+			showUsage()
+			os.Exit(1)
 		}
-
-		ext := strings.ToLower(filepath.Ext(file))
-		if _, exists := linterMap[ext]; exists {
-			fileGroups[ext] = append(fileGroups[ext], file)
-		} else {
-			fmt.Printf("Warning: No linter configured for file %s (extension: %s)\n", file, ext)
+		files = os.Args[2:]
+	case "format":
+		mode = ModeFormat
+		if len(os.Args) < 3 {
+			showUsage()
+			os.Exit(1)
 		}
+		files = os.Args[2:]
+	default:
+		// No subcommand, treat first arg as file
+		mode = ModeBoth
+		files = os.Args[1:]
 	}
 
-	// Check if any files will be linted
-	if len(fileGroups) == 0 {
-		fmt.Println("No supported files provided, no files were linted")
-		os.Exit(0)
-	}
-
-	// Execute linters for each file extension
-	exitCode := 0
-	for ext, fileList := range fileGroups {
-		linterCommands := linterMap[ext]
-
-		// Try each linter command in order until one is available
-		var executed bool
-		for _, linterCmd := range linterCommands {
-			if linterCmd.Available() {
-				cmd, args := linterCmd.Command(fileList)
-
-				fmt.Printf("Running: %s %s\n", cmd, strings.Join(args, " "))
-
-				execCmd := exec.Command(cmd, args...)
-				execCmd.Stdout = os.Stdout
-				execCmd.Stderr = os.Stderr
-
-				if err := execCmd.Run(); err != nil {
-					if exitError, ok := err.(*exec.ExitError); ok {
-						exitCode = exitError.ExitCode()
-					} else {
-						fmt.Fprintf(os.Stderr, "Error executing %s: %v\n", cmd, err)
-						exitCode = 1
-					}
-				}
-				executed = true
-				break // Stop after first available linter
-			}
-		}
-
-		if !executed {
-			fmt.Printf("Warning: No available linter found for %s files\n", ext)
-		}
-	}
-
+	exitCode := processFiles(files, mode)
 	os.Exit(exitCode)
 }

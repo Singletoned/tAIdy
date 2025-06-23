@@ -469,6 +469,133 @@ func (tctx *TestContainerTestContext) aWarningShouldBeShownForUnsupportedFiles()
 	return nil
 }
 
+func (tctx *TestContainerTestContext) lintOutputIsEmitted() error {
+	if tctx.commandResult == nil {
+		return fmt.Errorf("no command result available")
+	}
+
+	combinedOutput := tctx.commandResult.Stdout + tctx.commandResult.Stderr
+
+	// Check if linting output is present (errors, warnings, etc.)
+	if strings.Contains(combinedOutput, "All checks passed!") ||
+		strings.Contains(combinedOutput, "error:") ||
+		strings.Contains(combinedOutput, "warning:") ||
+		strings.Contains(combinedOutput, "E") || // flake8/pylint error codes
+		strings.Contains(combinedOutput, "W") || // warning codes
+		strings.Contains(combinedOutput, "Running:") {
+		return nil
+	}
+
+	return fmt.Errorf("expected lint output to be emitted, but none found.\nActual output: %s", combinedOutput)
+}
+
+func (tctx *TestContainerTestContext) noFormattingHappens() error {
+	if tctx.commandResult == nil {
+		return fmt.Errorf("no command result available")
+	}
+
+	combinedOutput := tctx.commandResult.Stdout + tctx.commandResult.Stderr
+
+	// Check that actual formatting (file modification) didn't happen
+	// Showing diffs (like "would reformat") is fine for linting, but actual reformatting is not
+	if strings.Contains(combinedOutput, "file reformatted") ||
+		strings.Contains(combinedOutput, "files reformatted") ||
+		strings.Contains(combinedOutput, "1 file reformatted") ||
+		(strings.Contains(combinedOutput, "reformatted") && !strings.Contains(combinedOutput, "would reformat")) {
+		return fmt.Errorf("expected no formatting to happen, but formatting output found.\nActual output: %s", combinedOutput)
+	}
+	return nil
+}
+
+func (tctx *TestContainerTestContext) noLintOutputIsEmitted() error {
+	if tctx.commandResult == nil {
+		return fmt.Errorf("no command result available")
+	}
+
+	combinedOutput := tctx.commandResult.Stdout + tctx.commandResult.Stderr
+
+	// Check that no linting output is present (only formatting)
+	if strings.Contains(combinedOutput, "error:") ||
+		strings.Contains(combinedOutput, "warning:") ||
+		(strings.Contains(combinedOutput, "E") && !strings.Contains(combinedOutput, "would reformat")) ||
+		(strings.Contains(combinedOutput, "W") && !strings.Contains(combinedOutput, "would reformat")) {
+		return fmt.Errorf("expected no lint output to be emitted, but lint output found.\nActual output: %s", combinedOutput)
+	}
+	return nil
+}
+
+func (tctx *TestContainerTestContext) taidyFormatPoorlyFormattedpyIsRun() error {
+	if tctx.currentContainer == nil {
+		// Set up container based on accumulated constraints
+		environment := tctx.determineEnvironment()
+		if err := tctx.SetupContainer(environment); err != nil {
+			return err
+		}
+
+		// Copy the poorly formatted file
+		if err := tctx.currentContainer.CopyFileIntoContainer("sample_files/poorly_formatted.py", "poorly_formatted.py"); err != nil {
+			return fmt.Errorf("failed to copy poorly_formatted.py: %w", err)
+		}
+	}
+
+	cmd := "/app/taidy format poorly_formatted.py"
+	result, err := tctx.currentContainer.ExecuteCommand(cmd)
+	if err != nil {
+		return fmt.Errorf("failed to execute taidy format: %w", err)
+	}
+
+	tctx.commandResult = result
+	return nil
+}
+
+func (tctx *TestContainerTestContext) taidyLintPoorlyFormattedpyIsRun() error {
+	if tctx.currentContainer == nil {
+		// Set up container based on accumulated constraints
+		environment := tctx.determineEnvironment()
+		if err := tctx.SetupContainer(environment); err != nil {
+			return err
+		}
+
+		// Copy the poorly formatted file
+		if err := tctx.currentContainer.CopyFileIntoContainer("sample_files/poorly_formatted.py", "poorly_formatted.py"); err != nil {
+			return fmt.Errorf("failed to copy poorly_formatted.py: %w", err)
+		}
+	}
+
+	cmd := "/app/taidy lint poorly_formatted.py"
+	result, err := tctx.currentContainer.ExecuteCommand(cmd)
+	if err != nil {
+		return fmt.Errorf("failed to execute taidy lint: %w", err)
+	}
+
+	tctx.commandResult = result
+	return nil
+}
+
+func (tctx *TestContainerTestContext) taidyPoorlyFormattedpyIsRun() error {
+	if tctx.currentContainer == nil {
+		// Set up container based on accumulated constraints
+		environment := tctx.determineEnvironment()
+		if err := tctx.SetupContainer(environment); err != nil {
+			return err
+		}
+
+		// Copy the poorly formatted file
+		if err := tctx.currentContainer.CopyFileIntoContainer("sample_files/poorly_formatted.py", "poorly_formatted.py"); err != nil {
+			return fmt.Errorf("failed to copy poorly_formatted.py: %w", err)
+		}
+	}
+
+	cmd := "/app/taidy poorly_formatted.py"
+	result, err := tctx.currentContainer.ExecuteCommand(cmd)
+	if err != nil {
+		return fmt.Errorf("failed to execute taidy: %w", err)
+	}
+
+	tctx.commandResult = result
+	return nil
+}
+
 // InitializeScenario initializes the test context for each scenario using testcontainers
 func (tctx *TestContainerTestContext) InitializeScenario(ctx *godog.ScenarioContext) {
 	// File creation steps
@@ -506,6 +633,12 @@ func (tctx *TestContainerTestContext) InitializeScenario(ctx *godog.ScenarioCont
 	ctx.Step(`^those files get linted$`, tctx.thoseFilesGetLinted)
 	ctx.Step(`^those files get formatted$`, tctx.thoseFilesGetFormatted)
 	ctx.Step(`^a warning should be shown for unsupported files$`, tctx.aWarningShouldBeShownForUnsupportedFiles)
+	ctx.Step(`^lint output is emitted$`, tctx.lintOutputIsEmitted)
+	ctx.Step(`^no formatting happens$`, tctx.noFormattingHappens)
+	ctx.Step(`^no lint output is emitted$`, tctx.noLintOutputIsEmitted)
+	ctx.Step(`^`+"`"+`taidy format poorly_formatted\.py`+"`"+` is run$`, tctx.taidyFormatPoorlyFormattedpyIsRun)
+	ctx.Step(`^`+"`"+`taidy lint poorly_formatted\.py`+"`"+` is run$`, tctx.taidyLintPoorlyFormattedpyIsRun)
+	ctx.Step(`^`+"`"+`taidy poorly_formatted\.py`+"`"+` is run$`, tctx.taidyPoorlyFormattedpyIsRun)
 
 	// Set scenario name and clean up after each scenario
 	ctx.Before(func(ctx context.Context, sc *godog.Scenario) (context.Context, error) {
