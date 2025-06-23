@@ -39,7 +39,7 @@ var linterMap = map[string][]LinterCommand{
 				return err == nil
 			},
 			Command: func(files []string) (string, []string) {
-				return "ruff", append([]string{"check"}, files...)
+				return "ruff", append([]string{"check", "--quiet"}, files...)
 			},
 		},
 		{
@@ -48,7 +48,7 @@ var linterMap = map[string][]LinterCommand{
 				return err == nil
 			},
 			Command: func(files []string) (string, []string) {
-				return "uvx", append([]string{"ruff", "check"}, files...)
+				return "uvx", append([]string{"ruff", "check", "--quiet"}, files...)
 			},
 		},
 		{
@@ -57,7 +57,7 @@ var linterMap = map[string][]LinterCommand{
 				return err == nil
 			},
 			Command: func(files []string) (string, []string) {
-				return "black", append([]string{"--check", "--diff"}, files...)
+				return "black", append([]string{"--check", "--quiet"}, files...)
 			},
 		},
 		{
@@ -66,7 +66,7 @@ var linterMap = map[string][]LinterCommand{
 				return err == nil
 			},
 			Command: func(files []string) (string, []string) {
-				return "flake8", files
+				return "flake8", append([]string{"--quiet"}, files...)
 			},
 		},
 		{
@@ -75,7 +75,7 @@ var linterMap = map[string][]LinterCommand{
 				return err == nil
 			},
 			Command: func(files []string) (string, []string) {
-				return "pylint", files
+				return "pylint", append([]string{"--quiet"}, files...)
 			},
 		},
 		{
@@ -97,7 +97,7 @@ var linterMap = map[string][]LinterCommand{
 				return err == nil
 			},
 			Command: func(files []string) (string, []string) {
-				return "eslint", files
+				return "eslint", append([]string{"--quiet"}, files...)
 			},
 		},
 		{
@@ -106,7 +106,7 @@ var linterMap = map[string][]LinterCommand{
 				return err == nil
 			},
 			Command: func(files []string) (string, []string) {
-				return "prettier", append([]string{"--check"}, files...)
+				return "prettier", append([]string{"--check", "--loglevel", "error"}, files...)
 			},
 		},
 		{
@@ -128,7 +128,7 @@ var linterMap = map[string][]LinterCommand{
 				return err == nil
 			},
 			Command: func(files []string) (string, []string) {
-				return "eslint", files
+				return "eslint", append([]string{"--quiet"}, files...)
 			},
 		},
 		{
@@ -137,7 +137,7 @@ var linterMap = map[string][]LinterCommand{
 				return err == nil
 			},
 			Command: func(files []string) (string, []string) {
-				return "prettier", append([]string{"--check"}, files...)
+				return "prettier", append([]string{"--check", "--loglevel", "error"}, files...)
 			},
 		},
 	},
@@ -148,7 +148,7 @@ var linterMap = map[string][]LinterCommand{
 				return err == nil
 			},
 			Command: func(files []string) (string, []string) {
-				return "eslint", files
+				return "eslint", append([]string{"--quiet"}, files...)
 			},
 		},
 		{
@@ -166,7 +166,7 @@ var linterMap = map[string][]LinterCommand{
 				return err == nil
 			},
 			Command: func(files []string) (string, []string) {
-				return "prettier", append([]string{"--check"}, files...)
+				return "prettier", append([]string{"--check", "--loglevel", "error"}, files...)
 			},
 		},
 	},
@@ -177,7 +177,7 @@ var linterMap = map[string][]LinterCommand{
 				return err == nil
 			},
 			Command: func(files []string) (string, []string) {
-				return "eslint", files
+				return "eslint", append([]string{"--quiet"}, files...)
 			},
 		},
 		{
@@ -195,7 +195,7 @@ var linterMap = map[string][]LinterCommand{
 				return err == nil
 			},
 			Command: func(files []string) (string, []string) {
-				return "prettier", append([]string{"--check"}, files...)
+				return "prettier", append([]string{"--check", "--loglevel", "error"}, files...)
 			},
 		},
 	},
@@ -206,7 +206,7 @@ var linterMap = map[string][]LinterCommand{
 				return err == nil
 			},
 			Command: func(files []string) (string, []string) {
-				return "prettier", append([]string{"--check"}, files...)
+				return "prettier", append([]string{"--check", "--loglevel", "error"}, files...)
 			},
 		},
 	},
@@ -217,7 +217,7 @@ var linterMap = map[string][]LinterCommand{
 				return err == nil
 			},
 			Command: func(files []string) (string, []string) {
-				return "prettier", append([]string{"--check"}, files...)
+				return "prettier", append([]string{"--check", "--loglevel", "error"}, files...)
 			},
 		},
 	},
@@ -228,7 +228,7 @@ var linterMap = map[string][]LinterCommand{
 				return err == nil
 			},
 			Command: func(files []string) (string, []string) {
-				return "prettier", append([]string{"--check"}, files...)
+				return "prettier", append([]string{"--check", "--loglevel", "error"}, files...)
 			},
 		},
 	},
@@ -239,7 +239,7 @@ var linterMap = map[string][]LinterCommand{
 				return err == nil
 			},
 			Command: func(files []string) (string, []string) {
-				return "prettier", append([]string{"--check"}, files...)
+				return "prettier", append([]string{"--check", "--loglevel", "error"}, files...)
 			},
 		},
 	},
@@ -250,7 +250,7 @@ var linterMap = map[string][]LinterCommand{
 				return err == nil
 			},
 			Command: func(files []string) (string, []string) {
-				return "prettier", append([]string{"--check"}, files...)
+				return "prettier", append([]string{"--check", "--loglevel", "error"}, files...)
 			},
 		},
 	},
@@ -272,7 +272,7 @@ var linterMap = map[string][]LinterCommand{
 				return err == nil
 			},
 			Command: func(files []string) (string, []string) {
-				return "rustfmt", append([]string{"--check"}, files...)
+				return "rustfmt", append([]string{"--check", "--quiet"}, files...)
 			},
 		},
 	},
@@ -283,7 +283,7 @@ var linterMap = map[string][]LinterCommand{
 				return err == nil
 			},
 			Command: func(files []string) (string, []string) {
-				return "rubocop", files
+				return "rubocop", append([]string{"--quiet"}, files...)
 			},
 		},
 	},
@@ -294,7 +294,7 @@ var linterMap = map[string][]LinterCommand{
 				return err == nil
 			},
 			Command: func(files []string) (string, []string) {
-				return "php-cs-fixer", append([]string{"fix", "--dry-run"}, files...)
+				return "php-cs-fixer", append([]string{"fix", "--dry-run", "--quiet"}, files...)
 			},
 		},
 	},
@@ -309,7 +309,7 @@ var formatterMap = map[string][]LinterCommand{
 				return err == nil
 			},
 			Command: func(files []string) (string, []string) {
-				return "ruff", append([]string{"format"}, files...)
+				return "ruff", append([]string{"format", "--quiet"}, files...)
 			},
 		},
 		{
@@ -318,7 +318,7 @@ var formatterMap = map[string][]LinterCommand{
 				return err == nil
 			},
 			Command: func(files []string) (string, []string) {
-				return "uvx", append([]string{"ruff", "format"}, files...)
+				return "uvx", append([]string{"ruff", "format", "--quiet"}, files...)
 			},
 		},
 		{
@@ -327,7 +327,7 @@ var formatterMap = map[string][]LinterCommand{
 				return err == nil
 			},
 			Command: func(files []string) (string, []string) {
-				return "black", files
+				return "black", append([]string{"--quiet"}, files...)
 			},
 		},
 	},
@@ -338,7 +338,7 @@ var formatterMap = map[string][]LinterCommand{
 				return err == nil
 			},
 			Command: func(files []string) (string, []string) {
-				return "prettier", append([]string{"--write"}, files...)
+				return "prettier", append([]string{"--write", "--loglevel", "error"}, files...)
 			},
 		},
 	},
@@ -349,7 +349,7 @@ var formatterMap = map[string][]LinterCommand{
 				return err == nil
 			},
 			Command: func(files []string) (string, []string) {
-				return "prettier", append([]string{"--write"}, files...)
+				return "prettier", append([]string{"--write", "--loglevel", "error"}, files...)
 			},
 		},
 	},
@@ -360,7 +360,7 @@ var formatterMap = map[string][]LinterCommand{
 				return err == nil
 			},
 			Command: func(files []string) (string, []string) {
-				return "prettier", append([]string{"--write"}, files...)
+				return "prettier", append([]string{"--write", "--loglevel", "error"}, files...)
 			},
 		},
 	},
@@ -371,7 +371,7 @@ var formatterMap = map[string][]LinterCommand{
 				return err == nil
 			},
 			Command: func(files []string) (string, []string) {
-				return "prettier", append([]string{"--write"}, files...)
+				return "prettier", append([]string{"--write", "--loglevel", "error"}, files...)
 			},
 		},
 	},
@@ -382,7 +382,7 @@ var formatterMap = map[string][]LinterCommand{
 				return err == nil
 			},
 			Command: func(files []string) (string, []string) {
-				return "prettier", append([]string{"--write"}, files...)
+				return "prettier", append([]string{"--write", "--loglevel", "error"}, files...)
 			},
 		},
 	},
@@ -393,7 +393,7 @@ var formatterMap = map[string][]LinterCommand{
 				return err == nil
 			},
 			Command: func(files []string) (string, []string) {
-				return "prettier", append([]string{"--write"}, files...)
+				return "prettier", append([]string{"--write", "--loglevel", "error"}, files...)
 			},
 		},
 	},
@@ -404,7 +404,7 @@ var formatterMap = map[string][]LinterCommand{
 				return err == nil
 			},
 			Command: func(files []string) (string, []string) {
-				return "prettier", append([]string{"--write"}, files...)
+				return "prettier", append([]string{"--write", "--loglevel", "error"}, files...)
 			},
 		},
 	},
@@ -415,7 +415,7 @@ var formatterMap = map[string][]LinterCommand{
 				return err == nil
 			},
 			Command: func(files []string) (string, []string) {
-				return "prettier", append([]string{"--write"}, files...)
+				return "prettier", append([]string{"--write", "--loglevel", "error"}, files...)
 			},
 		},
 	},
@@ -426,7 +426,7 @@ var formatterMap = map[string][]LinterCommand{
 				return err == nil
 			},
 			Command: func(files []string) (string, []string) {
-				return "prettier", append([]string{"--write"}, files...)
+				return "prettier", append([]string{"--write", "--loglevel", "error"}, files...)
 			},
 		},
 	},
@@ -448,7 +448,7 @@ var formatterMap = map[string][]LinterCommand{
 				return err == nil
 			},
 			Command: func(files []string) (string, []string) {
-				return "rustfmt", files
+				return "rustfmt", append([]string{"--quiet"}, files...)
 			},
 		},
 	},
@@ -459,7 +459,7 @@ var formatterMap = map[string][]LinterCommand{
 				return err == nil
 			},
 			Command: func(files []string) (string, []string) {
-				return "rubocop", append([]string{"-a"}, files...)
+				return "rubocop", append([]string{"-a", "--quiet"}, files...)
 			},
 		},
 	},
@@ -470,7 +470,7 @@ var formatterMap = map[string][]LinterCommand{
 				return err == nil
 			},
 			Command: func(files []string) (string, []string) {
-				return "php-cs-fixer", append([]string{"fix"}, files...)
+				return "php-cs-fixer", append([]string{"fix", "--quiet"}, files...)
 			},
 		},
 	},
