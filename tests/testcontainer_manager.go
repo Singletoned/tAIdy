@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"time"
@@ -43,6 +44,67 @@ func (tcm *TestContainerManager) Close() error {
 	return nil
 }
 
+// copyDir recursively copies a directory tree
+func copyDir(src, dst string) error {
+	info, err := os.Stat(src)
+	if err != nil {
+		return err
+	}
+	
+	if err := os.MkdirAll(dst, info.Mode()); err != nil {
+		return err
+	}
+	
+	entries, err := os.ReadDir(src)
+	if err != nil {
+		return err
+	}
+	
+	for _, entry := range entries {
+		srcPath := filepath.Join(src, entry.Name())
+		dstPath := filepath.Join(dst, entry.Name())
+		
+		if entry.IsDir() {
+			if err := copyDir(srcPath, dstPath); err != nil {
+				return err
+			}
+		} else {
+			if err := copyFile(srcPath, dstPath); err != nil {
+				return err
+			}
+		}
+	}
+	
+	return nil
+}
+
+// copyFile copies a single file
+func copyFile(src, dst string) error {
+	srcFile, err := os.Open(src)
+	if err != nil {
+		return err
+	}
+	defer srcFile.Close()
+	
+	info, err := srcFile.Stat()
+	if err != nil {
+		return err
+	}
+	
+	dstFile, err := os.Create(dst)
+	if err != nil {
+		return err
+	}
+	defer dstFile.Close()
+	
+	if err := dstFile.Chmod(info.Mode()); err != nil {
+		return err
+	}
+	
+	_, err = io.Copy(dstFile, srcFile)
+	return err
+}
+
 // GetDockerfileContent generates dynamic Dockerfile content based on environment
 // Expects pre-built taidy binary to be copied in
 func (tcm *TestContainerManager) GetDockerfileContent(environment string) (string, error) {
@@ -50,39 +112,39 @@ func (tcm *TestContainerManager) GetDockerfileContent(environment string) (strin
 	case "python311":
 		return `FROM python:3.11-slim
 RUN pip install ruff
-COPY taidy.py /app/taidy.py
-RUN chmod +x /app/taidy.py
+COPY taidy /app/taidy
+ENV PYTHONPATH=/app
 WORKDIR /tmp`, nil
 	case "python311-uv":
 		return `FROM python:3.11-slim
 RUN pip install uv
-COPY taidy.py /app/taidy.py
-RUN chmod +x /app/taidy.py
+COPY taidy /app/taidy
+ENV PYTHONPATH=/app
 WORKDIR /tmp`, nil
 	case "python311-black":
 		return `FROM python:3.11-slim
 RUN pip install black
-COPY taidy.py /app/taidy.py
-RUN chmod +x /app/taidy.py
+COPY taidy /app/taidy
+ENV PYTHONPATH=/app
 WORKDIR /tmp`, nil
 	case "python311-sqlfluff":
 		return `FROM python:3.11-slim
 RUN pip install sqlfluff
-COPY taidy.py /app/taidy.py
-RUN chmod +x /app/taidy.py
+COPY taidy /app/taidy
+ENV PYTHONPATH=/app
 WORKDIR /tmp`, nil
 	case "node18":
 		return `FROM node:18-slim
 RUN apt-get update && apt-get install -y python3
 RUN npm install -g prettier
-COPY taidy.py /app/taidy.py
-RUN chmod +x /app/taidy.py
+COPY taidy /app/taidy
+ENV PYTHONPATH=/app
 WORKDIR /tmp`, nil
 	case "go121":
 		return `FROM golang:1.24-alpine
 RUN apk add --no-cache python3
-COPY taidy.py /app/taidy.py
-RUN chmod +x /app/taidy.py
+COPY taidy /app/taidy
+ENV PYTHONPATH=/app
 WORKDIR /tmp`, nil
 	case "shell-tools":
 		return `FROM ubuntu:22.04
@@ -91,14 +153,14 @@ RUN apt-get install -y wget && \
     wget -O /usr/local/bin/shfmt https://github.com/mvdan/sh/releases/download/v3.7.0/shfmt_v3.7.0_linux_amd64 && \
     chmod +x /usr/local/bin/shfmt
 RUN apt-get install -y python3 python3-pip && pip3 install beautysh
-COPY taidy.py /app/taidy.py
-RUN chmod +x /app/taidy.py
+COPY taidy /app/taidy
+ENV PYTHONPATH=/app
 WORKDIR /tmp`, nil
 	case "minimal":
 		return `FROM alpine:latest
 RUN apk add --no-cache python3
-COPY taidy.py /app/taidy.py
-RUN chmod +x /app/taidy.py
+COPY taidy /app/taidy
+ENV PYTHONPATH=/app
 WORKDIR /tmp`, nil
 	default:
 		return "", fmt.Errorf("unknown environment: %s", environment)
@@ -130,19 +192,15 @@ func NewTestContainerContext(environment string, manager *TestContainerManager) 
 		return nil, fmt.Errorf("failed to write Dockerfile: %w", err)
 	}
 
-	// Copy Python script to build context
-	pythonPath := "../taidy.py"
-	if _, err := os.Stat(pythonPath); err != nil {
-		return nil, fmt.Errorf("taidy.py not found at %s", pythonPath)
+	// Copy Python package to build context
+	packagePath := "../taidy"
+	if _, err := os.Stat(packagePath); err != nil {
+		return nil, fmt.Errorf("taidy package not found at %s", packagePath)
 	}
 
-	pythonContent, err := os.ReadFile(pythonPath)
-	if err != nil {
-		return nil, fmt.Errorf("failed to read taidy.py: %w", err)
-	}
-
-	if err := os.WriteFile(filepath.Join(buildDir, "taidy.py"), pythonContent, 0755); err != nil {
-		return nil, fmt.Errorf("failed to copy taidy.py to build context: %w", err)
+	// Copy the entire taidy package
+	if err := copyDir(packagePath, filepath.Join(buildDir, "taidy")); err != nil {
+		return nil, fmt.Errorf("failed to copy taidy package: %w", err)
 	}
 
 	// Create container request with optimizations

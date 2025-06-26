@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+"""Taidy CLI - Smart linter/formatter with automatic tool detection."""
 
 import os
 import sys
@@ -343,7 +344,8 @@ FORMATTER_MAP: Dict[str, List[LinterCommand]] = {
 
 def show_usage():
     """Show usage information"""
-    print(f"Usage: {sys.argv[0]} [command] <file1> <file2> ...", file=sys.stderr)
+    prog_name = "taidy"
+    print(f"Usage: {prog_name} [command] <file1> <file2> ...", file=sys.stderr)
     print("\nCommands:", file=sys.stderr)
     print("  lint     Lint files only (no formatting)", file=sys.stderr)
     print("  format   Format files only (no linting)", file=sys.stderr)

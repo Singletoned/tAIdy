@@ -335,7 +335,7 @@ func (tctx *TestContainerTestContext) taidyIsCalledWithFilenames(filePattern str
 
 	// Run taidy with matching files
 	filesStr := strings.Join(matchingFiles, " ")
-	cmd := fmt.Sprintf("python3 /app/taidy.py %s", filesStr)
+	cmd := fmt.Sprintf("python3 -m taidy %s", filesStr)
 
 	result, err := tctx.currentContainer.ExecuteCommand(cmd)
 	if err != nil {
@@ -357,7 +357,7 @@ func (tctx *TestContainerTestContext) taidyIsCalledWithTheFiles() error {
 
 	// Run taidy with all test files
 	filesStr := strings.Join(tctx.testFiles, " ")
-	cmd := fmt.Sprintf("python3 /app/taidy.py %s", filesStr)
+	cmd := fmt.Sprintf("python3 -m taidy %s", filesStr)
 
 	result, err := tctx.currentContainer.ExecuteCommand(cmd)
 	if err != nil {
@@ -375,7 +375,7 @@ func (tctx *TestContainerTestContext) taidyIsCalledWithNoArguments() error {
 		}
 	}
 
-	cmd := "python3 /app/taidy.py"
+	cmd := "python3 -m taidy"
 	result, err := tctx.currentContainer.ExecuteCommand(cmd)
 	if err != nil {
 		return fmt.Errorf("failed to execute taidy: %w", err)
@@ -393,7 +393,7 @@ func (tctx *TestContainerTestContext) taidyIsCalledWithFilesThatDontExist() erro
 	}
 
 	// Use non-existent file names
-	cmd := "python3 /app/taidy.py nonexistent1.py nonexistent2.js"
+	cmd := "python3 -m taidy nonexistent1.py nonexistent2.js"
 	result, err := tctx.currentContainer.ExecuteCommand(cmd)
 	if err != nil {
 		return fmt.Errorf("failed to execute taidy: %w", err)
@@ -594,7 +594,7 @@ func (tctx *TestContainerTestContext) taidyFormatPoorlyFormattedpyIsRun() error 
 		}
 	}
 
-	cmd := "python3 /app/taidy.py format poorly_formatted.py"
+	cmd := "python3 -m taidy format poorly_formatted.py"
 	result, err := tctx.currentContainer.ExecuteCommand(cmd)
 	if err != nil {
 		return fmt.Errorf("failed to execute taidy format: %w", err)
@@ -618,7 +618,7 @@ func (tctx *TestContainerTestContext) taidyLintPoorlyFormattedpyIsRun() error {
 		}
 	}
 
-	cmd := "python3 /app/taidy.py lint poorly_formatted.py"
+	cmd := "python3 -m taidy lint poorly_formatted.py"
 	result, err := tctx.currentContainer.ExecuteCommand(cmd)
 	if err != nil {
 		return fmt.Errorf("failed to execute taidy lint: %w", err)
@@ -642,7 +642,7 @@ func (tctx *TestContainerTestContext) taidyPoorlyFormattedpyIsRun() error {
 		}
 	}
 
-	cmd := "python3 /app/taidy.py poorly_formatted.py"
+	cmd := "python3 -m taidy poorly_formatted.py"
 	result, err := tctx.currentContainer.ExecuteCommand(cmd)
 	if err != nil {
 		return fmt.Errorf("failed to execute taidy: %w", err)
@@ -666,7 +666,7 @@ func (tctx *TestContainerTestContext) taidyFormatPoorlyFormattedsqlIsRun() error
 		}
 	}
 
-	cmd := "python3 /app/taidy.py format poorly_formatted.sql"
+	cmd := "python3 -m taidy format poorly_formatted.sql"
 	result, err := tctx.currentContainer.ExecuteCommand(cmd)
 	if err != nil {
 		return fmt.Errorf("failed to execute taidy format: %w", err)
@@ -690,7 +690,7 @@ func (tctx *TestContainerTestContext) taidyLintPoorlyFormattedsqlIsRun() error {
 		}
 	}
 
-	cmd := "python3 /app/taidy.py lint poorly_formatted.sql"
+	cmd := "python3 -m taidy lint poorly_formatted.sql"
 	result, err := tctx.currentContainer.ExecuteCommand(cmd)
 	if err != nil {
 		return fmt.Errorf("failed to execute taidy lint: %w", err)
@@ -714,7 +714,7 @@ func (tctx *TestContainerTestContext) taidyPoorlyFormattedsqlIsRun() error {
 		}
 	}
 
-	cmd := "python3 /app/taidy.py poorly_formatted.sql"
+	cmd := "python3 -m taidy poorly_formatted.sql"
 	result, err := tctx.currentContainer.ExecuteCommand(cmd)
 	if err != nil {
 		return fmt.Errorf("failed to execute taidy: %w", err)
@@ -738,7 +738,7 @@ func (tctx *TestContainerTestContext) taidyFormatPoorlyFormattedshIsRun() error 
 		}
 	}
 
-	cmd := "python3 /app/taidy.py format poorly_formatted.sh"
+	cmd := "python3 -m taidy format poorly_formatted.sh"
 	result, err := tctx.currentContainer.ExecuteCommand(cmd)
 	if err != nil {
 		return fmt.Errorf("failed to execute taidy format: %w", err)
@@ -762,7 +762,7 @@ func (tctx *TestContainerTestContext) taidyLintPoorlyFormattedshIsRun() error {
 		}
 	}
 
-	cmd := "python3 /app/taidy.py lint poorly_formatted.sh"
+	cmd := "python3 -m taidy lint poorly_formatted.sh"
 	result, err := tctx.currentContainer.ExecuteCommand(cmd)
 	if err != nil {
 		return fmt.Errorf("failed to execute taidy lint: %w", err)
@@ -786,7 +786,7 @@ func (tctx *TestContainerTestContext) taidyPoorlyFormattedshIsRun() error {
 		}
 	}
 
-	cmd := "python3 /app/taidy.py poorly_formatted.sh"
+	cmd := "python3 -m taidy poorly_formatted.sh"
 	result, err := tctx.currentContainer.ExecuteCommand(cmd)
 	if err != nil {
 		return fmt.Errorf("failed to execute taidy: %w", err)
@@ -810,7 +810,7 @@ func (tctx *TestContainerTestContext) taidyPoorlyFormattedbashIsRun() error {
 		}
 	}
 
-	cmd := "python3 /app/taidy.py poorly_formatted.bash"
+	cmd := "python3 -m taidy poorly_formatted.bash"
 	result, err := tctx.currentContainer.ExecuteCommand(cmd)
 	if err != nil {
 		return fmt.Errorf("failed to execute taidy: %w", err)
@@ -834,7 +834,7 @@ func (tctx *TestContainerTestContext) taidyPoorlyFormattedzshIsRun() error {
 		}
 	}
 
-	cmd := "python3 /app/taidy.py poorly_formatted.zsh"
+	cmd := "python3 -m taidy poorly_formatted.zsh"
 	result, err := tctx.currentContainer.ExecuteCommand(cmd)
 	if err != nil {
 		return fmt.Errorf("failed to execute taidy: %w", err)

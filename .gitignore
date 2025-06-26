@@ -5,10 +5,6 @@
 *.so
 *.dylib
 
-# Test binary, built with `go test -c`
-*.test
-taidy.test
-
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 
@@ -16,8 +12,6 @@ taidy.test
 go.work
 
 # Build artifacts
-taidy
-lintair
 dist/
 *.tar.gz
 *.zip
