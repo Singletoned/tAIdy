@@ -15,6 +15,7 @@ go.work
 dist/
 *.tar.gz
 *.zip
+*.egg-info/
 
 # IDE files
 .vscode/
