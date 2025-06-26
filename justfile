@@ -13,17 +13,15 @@ nc := '\033[0m'
 # Default format for tests
 format := env_var_or_default('FORMAT', 'pretty')
 
-# Build the main binary (same as Linux for consistency)
+# Validate Python implementation
 build:
-    @echo "{{blue}}[INFO]{{nc}} Building taidy binary..."
-    go build -o taidy
-    @echo "{{green}}[SUCCESS]{{nc}} Built taidy binary"
+    @echo "{{blue}}[INFO]{{nc}} Validating Python implementation..."
+    @test -f taidy.py || (echo "{{red}}[ERROR]{{nc}} taidy.py not found" && exit 1)
+    @python3 -m py_compile taidy.py || (echo "{{red}}[ERROR]{{nc}} Python syntax error in taidy.py" && exit 1)
+    @echo "{{green}}[SUCCESS]{{nc}} Python implementation ready"
 
-# Build Linux binary for Docker containers (same as main binary)
-build-linux:
-    @echo "{{blue}}[INFO]{{nc}} Building Linux binary for Docker containers..."
-    env GOOS=linux GOARCH=amd64 go build -o taidy
-    @echo "{{green}}[SUCCESS]{{nc}} Built taidy binary"
+# Validate for containers (same as main build)
+build-linux: build
 
 # Build both binaries (now just one build)
 build-all: build
@@ -64,7 +62,8 @@ package: build-cross-platform
 clean:
     @echo "{{blue}}[INFO]{{nc}} Cleaning build artifacts..."
     rm -rf dist/
-    rm -f taidy lintair
+    rm -f taidy lintair taidy_wrapper.sh
+    rm -f __pycache__ *.pyc
     @echo "{{green}}[SUCCESS]{{nc}} Cleaned build artifacts"
 
 # Check if Docker is running

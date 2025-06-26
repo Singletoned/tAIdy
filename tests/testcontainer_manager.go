@@ -50,42 +50,55 @@ func (tcm *TestContainerManager) GetDockerfileContent(environment string) (strin
 	case "python311":
 		return `FROM python:3.11-slim
 RUN pip install ruff
-COPY taidy /app/taidy
-RUN chmod +x /app/taidy
+COPY taidy.py /app/taidy.py
+RUN chmod +x /app/taidy.py
 WORKDIR /tmp`, nil
 	case "python311-uv":
 		return `FROM python:3.11-slim
 RUN pip install uv
-COPY taidy /app/taidy
-RUN chmod +x /app/taidy
+COPY taidy.py /app/taidy.py
+RUN chmod +x /app/taidy.py
 WORKDIR /tmp`, nil
 	case "python311-black":
 		return `FROM python:3.11-slim
 RUN pip install black
-COPY taidy /app/taidy
-RUN chmod +x /app/taidy
+COPY taidy.py /app/taidy.py
+RUN chmod +x /app/taidy.py
 WORKDIR /tmp`, nil
 	case "python311-sqlfluff":
 		return `FROM python:3.11-slim
 RUN pip install sqlfluff
-COPY taidy /app/taidy
-RUN chmod +x /app/taidy
+COPY taidy.py /app/taidy.py
+RUN chmod +x /app/taidy.py
 WORKDIR /tmp`, nil
 	case "node18":
 		return `FROM node:18-slim
+RUN apt-get update && apt-get install -y python3
 RUN npm install -g prettier
-COPY taidy /app/taidy
-RUN chmod +x /app/taidy
+COPY taidy.py /app/taidy.py
+RUN chmod +x /app/taidy.py
 WORKDIR /tmp`, nil
 	case "go121":
 		return `FROM golang:1.24-alpine
-COPY taidy /app/taidy
-RUN chmod +x /app/taidy
+RUN apk add --no-cache python3
+COPY taidy.py /app/taidy.py
+RUN chmod +x /app/taidy.py
+WORKDIR /tmp`, nil
+	case "shell-tools":
+		return `FROM ubuntu:22.04
+RUN apt-get update && apt-get install -y shellcheck
+RUN apt-get install -y wget && \
+    wget -O /usr/local/bin/shfmt https://github.com/mvdan/sh/releases/download/v3.7.0/shfmt_v3.7.0_linux_amd64 && \
+    chmod +x /usr/local/bin/shfmt
+RUN apt-get install -y python3 python3-pip && pip3 install beautysh
+COPY taidy.py /app/taidy.py
+RUN chmod +x /app/taidy.py
 WORKDIR /tmp`, nil
 	case "minimal":
 		return `FROM alpine:latest
-COPY taidy /app/taidy
-RUN chmod +x /app/taidy
+RUN apk add --no-cache python3
+COPY taidy.py /app/taidy.py
+RUN chmod +x /app/taidy.py
 WORKDIR /tmp`, nil
 	default:
 		return "", fmt.Errorf("unknown environment: %s", environment)
@@ -117,20 +130,19 @@ func NewTestContainerContext(environment string, manager *TestContainerManager) 
 		return nil, fmt.Errorf("failed to write Dockerfile: %w", err)
 	}
 
-	// Copy pre-built taidy binary to build context
-	// The binary should be built for Linux before running tests
-	binaryPath := "../taidy"
-	if _, err := os.Stat(binaryPath); err != nil {
-		return nil, fmt.Errorf("taidy binary not found at %s. Please run 'env GOOS=linux GOARCH=amd64 go build -o taidy' first", binaryPath)
+	// Copy Python script to build context
+	pythonPath := "../taidy.py"
+	if _, err := os.Stat(pythonPath); err != nil {
+		return nil, fmt.Errorf("taidy.py not found at %s", pythonPath)
 	}
 
-	content, err := os.ReadFile(binaryPath)
+	pythonContent, err := os.ReadFile(pythonPath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read taidy binary: %w", err)
+		return nil, fmt.Errorf("failed to read taidy.py: %w", err)
 	}
 
-	if err := os.WriteFile(filepath.Join(buildDir, "taidy"), content, 0755); err != nil {
-		return nil, fmt.Errorf("failed to copy taidy binary to build context: %w", err)
+	if err := os.WriteFile(filepath.Join(buildDir, "taidy.py"), pythonContent, 0755); err != nil {
+		return nil, fmt.Errorf("failed to copy taidy.py to build context: %w", err)
 	}
 
 	// Create container request with optimizations
