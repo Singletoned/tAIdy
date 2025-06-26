@@ -10,7 +10,7 @@ from typing import List, Dict, Tuple, Callable, Optional
 from dataclasses import dataclass
 
 # Version information - can be overridden at build time
-VERSION = "dev"
+VERSION = "0.1.0"
 GIT_COMMIT = "unknown"
 BUILD_DATE = "unknown"
 
