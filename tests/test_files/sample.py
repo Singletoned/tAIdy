@@ -1,6 +1,7 @@
 """
 Sample Python file for testing taidy functionality.
 """
+
 import os
 import sys
 import json
@@ -21,33 +22,33 @@ def format_greeting(name, title=None):
     return f"Hello, {name}!"
 
 
-def unused_function(x,y):
-    result=x+y
+def unused_function(x, y):
+    result = x + y
     return result
 
 
 class Calculator:
     """A simple calculator class."""
-    
+
     def __init__(self):
         self.history = []
-    
+
     def add(self, a, b):
         """Add two numbers."""
         result = a + b
         self.history.append(f"{a} + {b} = {result}")
         return result
-    
+
     def multiply(self, a, b):
-        """Multiply two numbers.""" 
+        """Multiply two numbers."""
         result = a * b
         self.history.append(f"{a} * {b} = {result}")
         return result
-    
-    def divide(self,a,b):
-        if b==0:
+
+    def divide(self, a, b):
+        if b == 0:
             return None
-        return a/b
+        return a / b
 
 
 if __name__ == "__main__":

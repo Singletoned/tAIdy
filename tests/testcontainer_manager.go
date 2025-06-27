@@ -50,20 +50,20 @@ func copyDir(src, dst string) error {
 	if err != nil {
 		return err
 	}
-	
+
 	if err := os.MkdirAll(dst, info.Mode()); err != nil {
 		return err
 	}
-	
+
 	entries, err := os.ReadDir(src)
 	if err != nil {
 		return err
 	}
-	
+
 	for _, entry := range entries {
 		srcPath := filepath.Join(src, entry.Name())
 		dstPath := filepath.Join(dst, entry.Name())
-		
+
 		if entry.IsDir() {
 			if err := copyDir(srcPath, dstPath); err != nil {
 				return err
@@ -74,7 +74,7 @@ func copyDir(src, dst string) error {
 			}
 		}
 	}
-	
+
 	return nil
 }
 
@@ -85,22 +85,22 @@ func copyFile(src, dst string) error {
 		return err
 	}
 	defer srcFile.Close()
-	
+
 	info, err := srcFile.Stat()
 	if err != nil {
 		return err
 	}
-	
+
 	dstFile, err := os.Create(dst)
 	if err != nil {
 		return err
 	}
 	defer dstFile.Close()
-	
+
 	if err := dstFile.Chmod(info.Mode()); err != nil {
 		return err
 	}
-	
+
 	_, err = io.Copy(dstFile, srcFile)
 	return err
 }
