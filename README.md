@@ -1,6 +1,6 @@
 # Taidy
 
-A linter/formatter for all file types. Designed for AI agents to be able to easily use, so that you can tell them to use this for every file and it won't fail.  Detects what tools are installed and uses them.  If it can't find a tool, it passes silently.
+A linter/formatter for all file types. Designed for AI agents to be able to easily use, so that you can tell them to use this for every file and it won't fail. Detects what tools are installed and uses them. If it can't find a tool, it passes silently.
 
 Mostly written by AI (Claude Sonnet).
 
@@ -14,16 +14,16 @@ Mostly written by AI (Claude Sonnet).
 
 ## Supported Languages & Tools
 
-| Language   | Priority Order |
-|------------|----------------|
-| **Python** | ruff → uvx ruff → black → flake8 → pylint → python -m py_compile |
-| **JavaScript** | eslint → prettier → node --check |
-| **TypeScript** | eslint → tsc --noEmit → prettier |
-| **Go** | gofmt |
-| **Rust** | rustfmt |
-| **Ruby** | rubocop |
-| **PHP** | php-cs-fixer |
-| **JSON/CSS** | prettier |
+| Language       | Priority Order                                                   |
+| -------------- | ---------------------------------------------------------------- |
+| **Python**     | ruff → uvx ruff → black → flake8 → pylint → python -m py_compile |
+| **JavaScript** | eslint → prettier → node --check                                 |
+| **TypeScript** | eslint → tsc --noEmit → prettier                                 |
+| **Go**         | gofmt                                                            |
+| **Rust**       | rustfmt                                                          |
+| **Ruby**       | rubocop                                                          |
+| **PHP**        | php-cs-fixer                                                     |
+| **JSON/CSS**   | prettier                                                         |
 
 ## Installation
 
@@ -101,6 +101,7 @@ Taidy examines each file's extension and tries linters/formatters in priority or
 3. **Report Results**: Shows what was run and any issues found
 
 For example, with a Python file:
+
 - First tries `ruff check file.py`
 - If ruff isn't installed, tries `uvx ruff check file.py`
 - If uv isn't available, falls back to `black --check --diff file.py`
@@ -166,6 +167,7 @@ MIT License - see [LICENSE](LICENSE) file for details.
 ## Inspiration
 
 Inspired by tools like:
+
 - [trunk](https://trunk.io/) - Universal linter/formatter
 - [mega-linter](https://megalinter.io/) - Comprehensive linting suite
 - [pre-commit](https://pre-commit.com/) - Git hook framework

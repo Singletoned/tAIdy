@@ -38,6 +38,7 @@ tests/
 ## Installation
 
 1. **Install Dependencies**:
+
    ```bash
    cd tests
    go mod tidy
@@ -134,21 +135,25 @@ Feature: Python file formatting with ruff
 The framework provides comprehensive step definitions:
 
 #### File Management
+
 - `Given the following Python file exists:`
 - `Given the following JavaScript file exists:`
 - `Given the following Go file exists:`
 
 #### Environment Checks
+
 - `Given {linter} is installed`
 - `Given {linter} is not installed`
 
 #### CLI Execution
+
 - `When lintair is called with {file_pattern} filenames`
 - `When lintair is called with the files`
 - `When lintair is called with no arguments`
 - `When lintair is called with files that don't exist`
 
 #### Assertions
+
 - `Then the exit code should be {code}`
 - `Then the output should contain "{text}"`
 - `Then the output should not contain "{text}"`
@@ -171,11 +176,13 @@ The framework automatically manages Docker containers:
 ## Godog Integration Benefits
 
 ### Native Go Support
+
 - Full integration with Go toolchain
 - No dependency on Python or virtual environments
 - Better performance and resource usage
 
 ### Rich Testing Features
+
 - Scenario outlines for data-driven tests
 - Background steps for common setup
 - Hooks for setup and teardown
@@ -186,6 +193,7 @@ The framework automatically manages Docker containers:
 To add new step definitions:
 
 1. **Add to `step_definitions.go`**:
+
    ```go
    func (tc *TestContext) myNewStep(param string) error {
        // Implementation
@@ -203,6 +211,7 @@ To add new step definitions:
 Here's a complete example of adding a new test:
 
 1. **Create feature file** (`features/rust_formatting.feature`):
+
    ```gherkin
    Feature: Rust file formatting with rustfmt
      Scenario: Rust file gets formatted
@@ -216,11 +225,13 @@ Here's a complete example of adding a new test:
    ```
 
 2. **Add environment** (in `step_definitions.go`):
+
    ```go
    "rust": {"docker/rust/rust.Dockerfile", "lintair-test:rust"},
    ```
 
 3. **Add step definition**:
+
    ```go
    func (tc *TestContext) theFollowingRustFileExists(docString *godog.DocString) error {
        // Implementation similar to other file creation steps
@@ -235,16 +246,20 @@ Here's a complete example of adding a new test:
 ## Debugging
 
 ### Container Logs
+
 When tests fail, container logs are automatically captured and displayed.
 
 ### Verbose Output
+
 ```bash
 # Run with pretty format for detailed output
 go run . --godog.format=pretty
 ```
 
 ### Manual Container Inspection
+
 If needed, you can manually inspect containers:
+
 ```bash
 # List running containers
 docker ps
@@ -256,6 +271,7 @@ docker exec -it <container-name> sh
 ## Continuous Integration
 
 ### GitHub Actions Example
+
 ```yaml
 name: BDD Tests
 on: [push, pull_request]
@@ -266,7 +282,7 @@ jobs:
       - uses: actions/checkout@v3
       - uses: actions/setup-go@v4
         with:
-          go-version: '1.24'
+          go-version: "1.24"
       - name: Build CLI binary
         run: GOOS=linux GOARCH=amd64 go build -o lintair-linux
       - name: Run tests
@@ -280,6 +296,7 @@ jobs:
 The framework was migrated from Python/pytest-bdd to Go/Godog for better integration:
 
 ### Key Changes
+
 - `pytest-bdd` → `Godog`
 - `conftest.py` → `main.go` and `step_definitions.go`
 - Python step definitions → Go step definitions
@@ -287,6 +304,7 @@ The framework was migrated from Python/pytest-bdd to Go/Godog for better integra
 - Simplified dependency management
 
 ### Benefits
+
 - **Native Integration**: No Python dependency, pure Go
 - **Better Performance**: Faster startup and execution
 - **Simpler Deployment**: Single binary, no virtual environments
