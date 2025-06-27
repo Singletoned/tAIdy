@@ -27,13 +27,22 @@ Mostly written by AI (Claude Sonnet).
 
 ## Installation
 
-### Option 1: pip install (Recommended)
+### Option 1: uv tool install (Recommended)
+
+```bash
+# Install uv if you don't have it:
+# curl -LsSf https://astral.sh/uv/install.sh | sh
+
+uv tool install taidy
+```
+
+### Option 2: pip install
 
 ```bash
 pip install taidy
 ```
 
-### Option 2: Development Installation
+### Option 3: Development Installation
 
 ```bash
 git clone https://github.com/singletoned/taidy.git
@@ -41,7 +50,7 @@ cd taidy
 pip install -e .
 ```
 
-### Option 3: Run Directly (No Installation)
+### Option 4: Run Directly (No Installation)
 
 ```bash
 git clone https://github.com/singletoned/taidy.git
