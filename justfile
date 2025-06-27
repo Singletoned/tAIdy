@@ -4,12 +4,12 @@
 default: test
 
 # Create distribution packages
-dist: build
+dist:
     python3 -m build
 
 # Run BDD tests
-test feature:
-    cd tests && go run . {{feature}}
+test *features:
+    cd tests && go run . {{features}}
 
 # Clean build artifacts
 clean:
