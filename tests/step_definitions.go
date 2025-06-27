@@ -157,6 +157,13 @@ func (tctx *TestContainerTestContext) theShellFileExists(filename string) error 
 	return nil
 }
 
+func (tctx *TestContainerTestContext) theMarkdownFileExists(filename string) error {
+	// Store the filename for later - don't set up container yet
+	// This allows subsequent steps to determine the correct environment
+	tctx.testFiles = append(tctx.testFiles, filename)
+	return nil
+}
+
 func (tctx *TestContainerTestContext) theFollowingJavaScriptFileExists(docString *godog.DocString) error {
 	if tctx.currentContainer == nil {
 		if err := tctx.SetupContainer("node18"); err != nil {
@@ -230,6 +237,12 @@ func (tctx *TestContainerTestContext) linterIsInstalled(linter string) error {
 					return fmt.Errorf("failed to copy shell file %s: %w", filename, err)
 				}
 			}
+			if strings.HasSuffix(filename, ".md") && linter == "prettier" {
+				sourceFile := fmt.Sprintf("sample_files/%s", filename)
+				if err := tctx.currentContainer.CopyFileIntoContainer(sourceFile, filename); err != nil {
+					return fmt.Errorf("failed to copy markdown file %s: %w", filename, err)
+				}
+			}
 		}
 	}
 
@@ -284,6 +297,12 @@ func (tctx *TestContainerTestContext) taidyIsCalledWithFilenames(filePattern str
 					return fmt.Errorf("failed to copy shell file %s: %w", filename, err)
 				}
 			}
+			if strings.HasSuffix(filename, ".md") {
+				sourceFile := fmt.Sprintf("sample_files/%s", filename)
+				if err := tctx.currentContainer.CopyFileIntoContainer(sourceFile, filename); err != nil {
+					return fmt.Errorf("failed to copy markdown file %s: %w", filename, err)
+				}
+			}
 		}
 
 		// Verify all constraints are satisfied
@@ -310,6 +329,7 @@ func (tctx *TestContainerTestContext) taidyIsCalledWithFilenames(filePattern str
 		"HTML":       `\.html$`,
 		"SQL":        `\.sql$`,
 		"Shell":      `\.(sh|bash|zsh)$`,
+		"Markdown":   `\.md$`,
 	}
 
 	var matchingFiles []string
@@ -844,6 +864,78 @@ func (tctx *TestContainerTestContext) taidyPoorlyFormattedzshIsRun() error {
 	return nil
 }
 
+func (tctx *TestContainerTestContext) taidyFormatPoorlyFormattedmdIsRun() error {
+	if tctx.currentContainer == nil {
+		// Set up container based on accumulated constraints
+		environment := tctx.determineEnvironment()
+		if err := tctx.SetupContainer(environment); err != nil {
+			return err
+		}
+
+		// Copy the poorly formatted file
+		if err := tctx.currentContainer.CopyFileIntoContainer("sample_files/poorly_formatted.md", "poorly_formatted.md"); err != nil {
+			return fmt.Errorf("failed to copy poorly_formatted.md: %w", err)
+		}
+	}
+
+	cmd := "python3 -m taidy format poorly_formatted.md"
+	result, err := tctx.currentContainer.ExecuteCommand(cmd)
+	if err != nil {
+		return fmt.Errorf("failed to execute taidy format: %w", err)
+	}
+
+	tctx.commandResult = result
+	return nil
+}
+
+func (tctx *TestContainerTestContext) taidyLintPoorlyFormattedmdIsRun() error {
+	if tctx.currentContainer == nil {
+		// Set up container based on accumulated constraints
+		environment := tctx.determineEnvironment()
+		if err := tctx.SetupContainer(environment); err != nil {
+			return err
+		}
+
+		// Copy the poorly formatted file
+		if err := tctx.currentContainer.CopyFileIntoContainer("sample_files/poorly_formatted.md", "poorly_formatted.md"); err != nil {
+			return fmt.Errorf("failed to copy poorly_formatted.md: %w", err)
+		}
+	}
+
+	cmd := "python3 -m taidy lint poorly_formatted.md"
+	result, err := tctx.currentContainer.ExecuteCommand(cmd)
+	if err != nil {
+		return fmt.Errorf("failed to execute taidy lint: %w", err)
+	}
+
+	tctx.commandResult = result
+	return nil
+}
+
+func (tctx *TestContainerTestContext) taidyPoorlyFormattedmdIsRun() error {
+	if tctx.currentContainer == nil {
+		// Set up container based on accumulated constraints
+		environment := tctx.determineEnvironment()
+		if err := tctx.SetupContainer(environment); err != nil {
+			return err
+		}
+
+		// Copy the poorly formatted file
+		if err := tctx.currentContainer.CopyFileIntoContainer("sample_files/poorly_formatted.md", "poorly_formatted.md"); err != nil {
+			return fmt.Errorf("failed to copy poorly_formatted.md: %w", err)
+		}
+	}
+
+	cmd := "python3 -m taidy poorly_formatted.md"
+	result, err := tctx.currentContainer.ExecuteCommand(cmd)
+	if err != nil {
+		return fmt.Errorf("failed to execute taidy: %w", err)
+	}
+
+	tctx.commandResult = result
+	return nil
+}
+
 // InitializeScenario initializes the test context for each scenario using testcontainers
 func (tctx *TestContainerTestContext) InitializeScenario(ctx *godog.ScenarioContext) {
 	// File creation steps
@@ -851,6 +943,7 @@ func (tctx *TestContainerTestContext) InitializeScenario(ctx *godog.ScenarioCont
 	ctx.Step(`^the Python file "([^"]*)" exists$`, tctx.thePythonFileExists)
 	ctx.Step(`^the SQL file "([^"]*)" exists$`, tctx.theSQLFileExists)
 	ctx.Step(`^the shell file "([^"]*)" exists$`, tctx.theShellFileExists)
+	ctx.Step(`^the markdown file "([^"]*)" exists$`, tctx.theMarkdownFileExists)
 	ctx.Step(`^the following JavaScript file exists:$`, tctx.theFollowingJavaScriptFileExists)
 	ctx.Step(`^the following Go file exists:$`, tctx.theFollowingGoFileExists)
 
@@ -897,6 +990,9 @@ func (tctx *TestContainerTestContext) InitializeScenario(ctx *godog.ScenarioCont
 	ctx.Step(`^`+"`"+`taidy poorly_formatted\.sh`+"`"+` is run$`, tctx.taidyPoorlyFormattedshIsRun)
 	ctx.Step(`^`+"`"+`taidy poorly_formatted\.bash`+"`"+` is run$`, tctx.taidyPoorlyFormattedbashIsRun)
 	ctx.Step(`^`+"`"+`taidy poorly_formatted\.zsh`+"`"+` is run$`, tctx.taidyPoorlyFormattedzshIsRun)
+	ctx.Step(`^`+"`"+`taidy format poorly_formatted\.md`+"`"+` is run$`, tctx.taidyFormatPoorlyFormattedmdIsRun)
+	ctx.Step(`^`+"`"+`taidy lint poorly_formatted\.md`+"`"+` is run$`, tctx.taidyLintPoorlyFormattedmdIsRun)
+	ctx.Step(`^`+"`"+`taidy poorly_formatted\.md`+"`"+` is run$`, tctx.taidyPoorlyFormattedmdIsRun)
 
 	// Set scenario name and clean up after each scenario
 	ctx.Before(func(ctx context.Context, sc *godog.Scenario) (context.Context, error) {

@@ -117,7 +117,7 @@ LINTER_MAP: Dict[str, List[LinterCommand]] = {
             available=lambda: is_command_available("prettier"),
             command=lambda files: (
                 "prettier",
-                ["--check", "--loglevel", "error"] + files,
+                ["--check", "--log-level", "error"] + files,
             ),
         ),
         LinterCommand(
@@ -134,7 +134,7 @@ LINTER_MAP: Dict[str, List[LinterCommand]] = {
             available=lambda: is_command_available("prettier"),
             command=lambda files: (
                 "prettier",
-                ["--check", "--loglevel", "error"] + files,
+                ["--check", "--log-level", "error"] + files,
             ),
         ),
     ],
@@ -151,7 +151,7 @@ LINTER_MAP: Dict[str, List[LinterCommand]] = {
             available=lambda: is_command_available("prettier"),
             command=lambda files: (
                 "prettier",
-                ["--check", "--loglevel", "error"] + files,
+                ["--check", "--log-level", "error"] + files,
             ),
         ),
     ],
@@ -168,7 +168,7 @@ LINTER_MAP: Dict[str, List[LinterCommand]] = {
             available=lambda: is_command_available("prettier"),
             command=lambda files: (
                 "prettier",
-                ["--check", "--loglevel", "error"] + files,
+                ["--check", "--log-level", "error"] + files,
             ),
         ),
     ],
@@ -177,7 +177,7 @@ LINTER_MAP: Dict[str, List[LinterCommand]] = {
             available=lambda: is_command_available("prettier"),
             command=lambda files: (
                 "prettier",
-                ["--check", "--loglevel", "error"] + files,
+                ["--check", "--log-level", "error"] + files,
             ),
         ),
     ],
@@ -186,7 +186,7 @@ LINTER_MAP: Dict[str, List[LinterCommand]] = {
             available=lambda: is_command_available("prettier"),
             command=lambda files: (
                 "prettier",
-                ["--check", "--loglevel", "error"] + files,
+                ["--check", "--log-level", "error"] + files,
             ),
         ),
     ],
@@ -195,7 +195,7 @@ LINTER_MAP: Dict[str, List[LinterCommand]] = {
             available=lambda: is_command_available("prettier"),
             command=lambda files: (
                 "prettier",
-                ["--check", "--loglevel", "error"] + files,
+                ["--check", "--log-level", "error"] + files,
             ),
         ),
     ],
@@ -204,7 +204,7 @@ LINTER_MAP: Dict[str, List[LinterCommand]] = {
             available=lambda: is_command_available("prettier"),
             command=lambda files: (
                 "prettier",
-                ["--check", "--loglevel", "error"] + files,
+                ["--check", "--log-level", "error"] + files,
             ),
         ),
     ],
@@ -213,7 +213,7 @@ LINTER_MAP: Dict[str, List[LinterCommand]] = {
             available=lambda: is_command_available("prettier"),
             command=lambda files: (
                 "prettier",
-                ["--check", "--loglevel", "error"] + files,
+                ["--check", "--log-level", "error"] + files,
             ),
         ),
     ],
@@ -310,7 +310,7 @@ FORMATTER_MAP: Dict[str, List[LinterCommand]] = {
             available=lambda: is_command_available("prettier"),
             command=lambda files: (
                 "prettier",
-                ["--write", "--loglevel", "error"] + files,
+                ["--write", "--log-level", "error"] + files,
             ),
         ),
     ],
@@ -319,7 +319,7 @@ FORMATTER_MAP: Dict[str, List[LinterCommand]] = {
             available=lambda: is_command_available("prettier"),
             command=lambda files: (
                 "prettier",
-                ["--write", "--loglevel", "error"] + files,
+                ["--write", "--log-level", "error"] + files,
             ),
         ),
     ],
@@ -328,7 +328,7 @@ FORMATTER_MAP: Dict[str, List[LinterCommand]] = {
             available=lambda: is_command_available("prettier"),
             command=lambda files: (
                 "prettier",
-                ["--write", "--loglevel", "error"] + files,
+                ["--write", "--log-level", "error"] + files,
             ),
         ),
     ],
@@ -337,7 +337,7 @@ FORMATTER_MAP: Dict[str, List[LinterCommand]] = {
             available=lambda: is_command_available("prettier"),
             command=lambda files: (
                 "prettier",
-                ["--write", "--loglevel", "error"] + files,
+                ["--write", "--log-level", "error"] + files,
             ),
         ),
     ],
@@ -346,7 +346,7 @@ FORMATTER_MAP: Dict[str, List[LinterCommand]] = {
             available=lambda: is_command_available("prettier"),
             command=lambda files: (
                 "prettier",
-                ["--write", "--loglevel", "error"] + files,
+                ["--write", "--log-level", "error"] + files,
             ),
         ),
     ],
@@ -355,7 +355,7 @@ FORMATTER_MAP: Dict[str, List[LinterCommand]] = {
             available=lambda: is_command_available("prettier"),
             command=lambda files: (
                 "prettier",
-                ["--write", "--loglevel", "error"] + files,
+                ["--write", "--log-level", "error"] + files,
             ),
         ),
     ],
@@ -364,7 +364,7 @@ FORMATTER_MAP: Dict[str, List[LinterCommand]] = {
             available=lambda: is_command_available("prettier"),
             command=lambda files: (
                 "prettier",
-                ["--write", "--loglevel", "error"] + files,
+                ["--write", "--log-level", "error"] + files,
             ),
         ),
     ],
@@ -373,7 +373,7 @@ FORMATTER_MAP: Dict[str, List[LinterCommand]] = {
             available=lambda: is_command_available("prettier"),
             command=lambda files: (
                 "prettier",
-                ["--write", "--loglevel", "error"] + files,
+                ["--write", "--log-level", "error"] + files,
             ),
         ),
     ],
@@ -382,7 +382,7 @@ FORMATTER_MAP: Dict[str, List[LinterCommand]] = {
             available=lambda: is_command_available("prettier"),
             command=lambda files: (
                 "prettier",
-                ["--write", "--loglevel", "error"] + files,
+                ["--write", "--log-level", "error"] + files,
             ),
         ),
     ],
