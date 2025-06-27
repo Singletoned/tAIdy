@@ -7,7 +7,7 @@ import subprocess
 import shutil
 from pathlib import Path
 from enum import Enum
-from typing import List, Dict, Tuple, Callable, Optional
+from typing import List, Dict, Tuple, Callable
 from dataclasses import dataclass
 
 # Version information - can be overridden at build time
@@ -521,7 +521,7 @@ def show_version():
         print(f"Built: {BUILD_DATE}")
 
 
-def execute_linters(commands: List[LinterCommand], file_list: List[str]) -> bool:
+def execute_linters(commands: List[LinterCommand], file_list: List[str]) -> int:
     """Try each command in order until one is available"""
     for linter_cmd in commands:
         if linter_cmd.available():
@@ -531,19 +531,19 @@ def execute_linters(commands: List[LinterCommand], file_list: List[str]) -> bool
 
             try:
                 result = subprocess.run([cmd] + args, capture_output=False)
-                # We don't check exit code here - let the tool output speak for itself
+                return result.returncode
             except FileNotFoundError:
                 print(
                     f"Error executing {cmd}: command not found",
                     file=sys.stderr,
                     flush=True,
                 )
+                return 127  # Standard exit code for command not found
             except Exception as e:
                 print(f"Error executing {cmd}: {e}", file=sys.stderr, flush=True)
+                return 1  # General error
 
-            return True  # Executed successfully
-
-    return False  # No available command found
+    return 2  # No available command found
 
 
 def process_files(files: List[str], mode: Mode) -> int:
@@ -597,15 +597,19 @@ def process_files(files: List[str], mode: Mode) -> int:
     for ext, file_list in file_groups.items():
         if mode in [Mode.LINT, Mode.BOTH]:
             if ext in LINTER_MAP:
-                executed = execute_linters(LINTER_MAP[ext], file_list)
-                if not executed:
+                result = execute_linters(LINTER_MAP[ext], file_list)
+                if result == 2:
                     print(f"Warning: No available linter found for {ext} files")
+                elif result != 0:
+                    exit_code = result
 
         if mode in [Mode.FORMAT, Mode.BOTH]:
             if ext in FORMATTER_MAP:
-                executed = execute_linters(FORMATTER_MAP[ext], file_list)
-                if not executed:
+                result = execute_linters(FORMATTER_MAP[ext], file_list)
+                if result == 2:
                     print(f"Warning: No available formatter found for {ext} files")
+                elif result != 0:
+                    exit_code = result
 
     return exit_code
 
