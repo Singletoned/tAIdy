@@ -1,13 +1,15 @@
 # Taidy
 
-Smart linter/formatter with automatic tool detection. Taidy automatically finds and uses the best available linting/formatting tools for your code files.
+A linter/formatter for all file types. Designed for AI agents to be able to easily use, so that you can tell them to use this for every file and it won't fail.  Detects what tools are installed and uses them.  If it can't find a tool, it passes silently.
+
+Mostly written by AI (Claude Sonnet).
 
 ## Features
 
 - 🔍 **Automatic Tool Detection**: Tries multiple linters/formatters in priority order
-- 🚀 **Zero Configuration**: Works out of the box with sensible defaults
+- 🚀 **Zero Configuration**: Works out of the box (but respects existing config)
 - 🔧 **Extensible**: Easy to add support for new languages and tools
-- 📦 **Single Binary**: No dependencies, just download and run
+- 📦 **Python Package**: Easy to install with pip, or run directly with Python
 - 🎯 **Smart Fallbacks**: Gracefully falls back when preferred tools aren't available
 
 ## Supported Languages & Tools
@@ -25,28 +27,26 @@ Smart linter/formatter with automatic tool detection. Taidy automatically finds 
 
 ## Installation
 
-### Option 1: Go Install (Recommended)
+### Option 1: pip install (Recommended)
 
 ```bash
-go install github.com/singletoned/taidy@latest
+pip install taidy
 ```
 
-### Option 2: Download Binary
-
-Download the latest release for your platform from the [releases page](https://github.com/singletoned/taidy/releases).
-
-### Option 3: Homebrew (macOS/Linux)
-
-```bash
-brew install singletoned/tap/taidy
-```
-
-### Option 4: Build from Source
+### Option 2: Development Installation
 
 ```bash
 git clone https://github.com/singletoned/taidy.git
 cd taidy
-go build -o taidy
+pip install -e .
+```
+
+### Option 3: Run Directly (No Installation)
+
+```bash
+git clone https://github.com/singletoned/taidy.git
+cd taidy
+python -m taidy file.py
 ```
 
 ## Usage
@@ -56,6 +56,9 @@ go build -o taidy
 ```bash
 # Lint/format specific files
 taidy main.py utils.js styles.css
+
+# Or with python -m
+python -m taidy main.py utils.js styles.css
 
 # Lint/format all files in current directory (with find)
 find . -name "*.py" -o -name "*.js" | xargs taidy
@@ -84,7 +87,7 @@ taidy src/**/*.ts src/**/*.tsx
 
 Taidy examines each file's extension and tries linters/formatters in priority order:
 
-1. **Check Availability**: Uses `exec.LookPath()` to see if each tool is installed
+1. **Check Availability**: Uses `shutil.which()` to see if each tool is installed
 2. **Run First Available**: Executes the first available tool with appropriate arguments
 3. **Report Results**: Shows what was run and any issues found
 
@@ -98,27 +101,24 @@ For example, with a Python file:
 
 ### Requirements
 
-- Go 1.24+
+- Python 3.6+
 - [just](https://github.com/casey/just) (for build scripts)
 - Docker (for integration tests)
 
 ### Building
 
 ```bash
-# Build for current platform
-just build
+# Install in development mode
+pip install -e .
 
-# Build for all platforms
-just build-all
+# Build distribution packages
+python -m build
 
 # Run tests
 just test
 
-# Run unit tests only (no Docker required)
-go test ./...
-
-# Development workflow
-just dev
+# Clean build artifacts
+just clean
 ```
 
 ### Testing
@@ -131,9 +131,6 @@ just test
 
 # Run specific feature
 just test-feature features/python.feature
-
-# Run tests with coverage
-just test-coverage
 ```
 
 ## Contributing
