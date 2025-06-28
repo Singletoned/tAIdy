@@ -1,6 +1,6 @@
 """Taidy - Smart linter/formatter with automatic tool detection."""
 
-__version__ = "0.1.0"
+__version__ = "0.1.2"
 __author__ = "singletoned"
 __description__ = "Smart linter/formatter with automatic tool detection"
 
