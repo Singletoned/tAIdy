@@ -10,6 +10,8 @@ from pathlib import Path
 from enum import Enum
 from typing import List, Dict, Tuple, Callable
 from dataclasses import dataclass
+from concurrent.futures import ThreadPoolExecutor, as_completed
+import threading
 
 import yaml
 
@@ -578,29 +580,69 @@ def show_version():
         print(f"Built: {BUILD_DATE}")
 
 
+# Thread-safe output lock
+output_lock = threading.Lock()
+
+
 def execute_linters(commands: List[LinterCommand], file_list: List[str]) -> int:
     """Try each command in order until one is available"""
     for linter_cmd in commands:
         if linter_cmd.available():
             cmd, args = linter_cmd.command(file_list)
 
-            print(f"Running: {cmd} {' '.join(args)}", flush=True)
+            with output_lock:
+                print(f"Running: {cmd} {' '.join(args)}", flush=True)
 
             try:
-                result = subprocess.run([cmd] + args, capture_output=False)
+                result = subprocess.run([cmd] + args, capture_output=True, text=True)
+
+                # Print output atomically to avoid mixing
+                with output_lock:
+                    if result.stdout:
+                        print(result.stdout, end="", flush=True)
+                    if result.stderr:
+                        print(result.stderr, end="", file=sys.stderr, flush=True)
+
                 return result.returncode
             except FileNotFoundError:
-                print(
-                    f"Error executing {cmd}: command not found",
-                    file=sys.stderr,
-                    flush=True,
-                )
+                with output_lock:
+                    print(
+                        f"Error executing {cmd}: command not found",
+                        file=sys.stderr,
+                        flush=True,
+                    )
                 return 127  # Standard exit code for command not found
             except Exception as e:
-                print(f"Error executing {cmd}: {e}", file=sys.stderr, flush=True)
+                with output_lock:
+                    print(f"Error executing {cmd}: {e}", file=sys.stderr, flush=True)
                 return 1  # General error
 
     return 2  # No available command found
+
+
+def process_file_group(ext: str, file_list: List[str], mode: Mode) -> int:
+    """Process a group of files with the same extension"""
+    exit_code = 0
+
+    if mode in [Mode.LINT, Mode.BOTH]:
+        if ext in LINTER_MAP:
+            result = execute_linters(LINTER_MAP[ext], file_list)
+            if result == 2:
+                with output_lock:
+                    print(f"Warning: No available linter found for {ext} files")
+            elif result != 0:
+                exit_code = result
+
+    if mode in [Mode.FORMAT, Mode.BOTH]:
+        if ext in FORMATTER_MAP:
+            result = execute_linters(FORMATTER_MAP[ext], file_list)
+            if result == 2:
+                with output_lock:
+                    print(f"Warning: No available formatter found for {ext} files")
+            elif result != 0:
+                exit_code = result
+
+    return exit_code
 
 
 def process_files(files: List[str], mode: Mode) -> int:
@@ -649,24 +691,30 @@ def process_files(files: List[str], mode: Mode) -> int:
         print("No supported files provided, no files were linted")
         return 0
 
-    # Execute linters/formatters for each file extension
+    # Execute linters/formatters for each file extension in parallel
     exit_code = 0
-    for ext, file_list in file_groups.items():
-        if mode in [Mode.LINT, Mode.BOTH]:
-            if ext in LINTER_MAP:
-                result = execute_linters(LINTER_MAP[ext], file_list)
-                if result == 2:
-                    print(f"Warning: No available linter found for {ext} files")
-                elif result != 0:
-                    exit_code = result
 
-        if mode in [Mode.FORMAT, Mode.BOTH]:
-            if ext in FORMATTER_MAP:
-                result = execute_linters(FORMATTER_MAP[ext], file_list)
-                if result == 2:
-                    print(f"Warning: No available formatter found for {ext} files")
-                elif result != 0:
+    # Use ThreadPoolExecutor for parallel processing
+    with ThreadPoolExecutor(
+        max_workers=min(len(file_groups), os.cpu_count() or 1)
+    ) as executor:
+        # Submit all file groups for processing
+        future_to_ext = {
+            executor.submit(process_file_group, ext, file_list, mode): ext
+            for ext, file_list in file_groups.items()
+        }
+
+        # Collect results as they complete
+        for future in as_completed(future_to_ext):
+            ext = future_to_ext[future]
+            try:
+                result = future.result()
+                if result != 0:
                     exit_code = result
+            except Exception as e:
+                with output_lock:
+                    print(f"Error processing {ext} files: {e}", file=sys.stderr)
+                exit_code = 1
 
     return exit_code
 
