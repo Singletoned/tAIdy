@@ -62,6 +62,9 @@ dev = [
     "black",
     "ruff",
 ]
+config = [
+    "pyyaml",
+]
 
 [tool.setuptools.packages.find]
 include = ["taidy*"]

@@ -5,10 +5,19 @@ import os
 import sys
 import subprocess
 import shutil
+import fnmatch
 from pathlib import Path
 from enum import Enum
 from typing import List, Dict, Tuple, Callable
 from dataclasses import dataclass
+
+# Optional YAML support
+try:
+    import yaml
+
+    HAS_YAML = True
+except ImportError:
+    HAS_YAML = False
 
 # Version information - can be overridden at build time
 VERSION = "0.1.0"
@@ -35,14 +44,61 @@ def is_command_available(cmd: str) -> bool:
     return shutil.which(cmd) is not None
 
 
+def load_config(start_path: str = ".") -> Dict:
+    """Load configuration from .taidy.yaml file, searching up directory tree"""
+    if not HAS_YAML:
+        return {}
+
+    current_path = Path(start_path).resolve()
+
+    # Search up directory tree for .taidy.yaml
+    for path in [current_path] + list(current_path.parents):
+        config_file = path / ".taidy.yaml"
+        if config_file.exists():
+            try:
+                with open(config_file, "r") as f:
+                    config = yaml.safe_load(f) or {}
+                    return config
+            except Exception as e:
+                print(f"Warning: Failed to parse {config_file}: {e}", file=sys.stderr)
+                return {}
+
+    return {}
+
+
+def should_ignore_file(file_path: Path, ignore_patterns: List[str]) -> bool:
+    """Check if a file should be ignored based on ignore patterns"""
+    file_str = str(file_path)
+
+    for pattern in ignore_patterns:
+        # Check if pattern matches the full path
+        if fnmatch.fnmatch(file_str, pattern):
+            return True
+
+        # Check if pattern matches any part of the path
+        if fnmatch.fnmatch(file_path.name, pattern):
+            return True
+
+        # Check if any parent directory matches the pattern
+        for part in file_path.parts:
+            if fnmatch.fnmatch(part, pattern):
+                return True
+
+    return False
+
+
 def discover_files_in_directory(directory_path: str) -> List[str]:
     """Discover all supported files in a directory recursively"""
     supported_extensions = set()
     supported_extensions.update(LINTER_MAP.keys())
     supported_extensions.update(FORMATTER_MAP.keys())
 
-    # Common directories to ignore
-    ignore_patterns = {
+    # Load config and get ignore patterns
+    config = load_config(directory_path)
+    config_ignores = config.get("ignore", [])
+
+    # Common directories to ignore (defaults)
+    default_ignore_patterns = [
         ".git",
         "node_modules",
         "__pycache__",
@@ -57,7 +113,10 @@ def discover_files_in_directory(directory_path: str) -> List[str]:
         ".mypy_cache",
         ".ruff_cache",
         ".coverage",
-    }
+    ]
+
+    # Combine default and config ignore patterns
+    all_ignore_patterns = default_ignore_patterns + config_ignores
 
     discovered_files = []
     directory = Path(directory_path)
@@ -67,8 +126,8 @@ def discover_files_in_directory(directory_path: str) -> List[str]:
         if not file_path.is_file():
             continue
 
-        # Skip if in ignored directory
-        if any(ignore_dir in file_path.parts for ignore_dir in ignore_patterns):
+        # Skip if file should be ignored
+        if should_ignore_file(file_path, all_ignore_patterns):
             continue
 
         # Skip if extension not supported
@@ -510,6 +569,13 @@ def show_help():
     print(
         "\nTaidy automatically detects which linters are available and uses the best one for each file type."
     )
+    print("\nConfiguration:")
+    print("  Create a .taidy.yaml file in your project root to customize behavior.")
+    print("  Example configuration:")
+    print("    ignore:")
+    print("      - 'tests/fixtures/*'")
+    print("      - 'vendor/**'")
+    print("      - '*.generated.*'")
 
 
 def show_version():

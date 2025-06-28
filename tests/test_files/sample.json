@@ -8,11 +8,7 @@
     "start": "node index.js",
     "lint": "prettier --check *.json"
   },
-  "keywords": [
-    "linting",
-    "cli",
-    "testing"
-  ],
+  "keywords": ["linting", "cli", "testing"],
   "author": "Test User",
   "license": "MIT",
   "dependencies": {
