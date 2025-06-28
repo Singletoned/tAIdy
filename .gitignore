@@ -45,6 +45,9 @@ coverage.out
 /tests/*.log
 *.pyc
 
+# MyPy cache
+.mypy_cache/
+
 # Claude settings
 .claude/settings.local.json
 CLAUDE.md

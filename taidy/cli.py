@@ -12,7 +12,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Callable, Dict, List, Tuple
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 import yaml
 
@@ -72,7 +72,7 @@ CONFIGURATION_TEXT = """Configuration:
 logger = logging.getLogger(__name__)
 
 
-def setup_logging():
+def setup_logging() -> None:
     """Setup logging to stdout with appropriate format"""
     # Only setup if not already configured
     if not logger.handlers:
@@ -103,7 +103,7 @@ def is_command_available(cmd: str) -> bool:
     return shutil.which(cmd) is not None
 
 
-def load_config(start_path: str = ".") -> Dict:
+def load_config(start_path: str = ".") -> Dict[str, Any]:
     """Load configuration from .taidy.yaml file, searching up directory tree"""
     current_path = Path(start_path).resolve()
 
@@ -145,7 +145,7 @@ def should_ignore_file(file_path: Path, ignore_patterns: List[str]) -> bool:
 
 def discover_files_in_directory(directory_path: str) -> List[str]:
     """Discover all supported files in a directory recursively"""
-    supported_extensions = set()
+    supported_extensions: Set[str] = set()
     supported_extensions.update(LINTER_MAP.keys())
     supported_extensions.update(FORMATTER_MAP.keys())
 
@@ -588,12 +588,12 @@ FORMATTER_MAP: Dict[str, List[LinterCommand]] = {
 }
 
 
-def show_usage():
+def show_usage() -> None:
     """Show usage information"""
     print(USAGE_TEXT, file=sys.stderr)
 
 
-def show_help():
+def show_help() -> None:
     """Show detailed help information"""
     print("Taidy - Smart linter/formatter with automatic tool detection\n")
     show_usage()
@@ -602,7 +602,7 @@ def show_help():
     print(f"\n{CONFIGURATION_TEXT}")
 
 
-def show_version():
+def show_version() -> None:
     """Show version information"""
     print(f"Taidy {VERSION}")
     if GIT_COMMIT != "unknown":
@@ -651,7 +651,7 @@ def process_file_group(
     ext: str,
     file_list: List[str],
     mode: Mode,
-    original_dirs: List[str] = None,
+    original_dirs: Optional[List[str]] = None,
     has_custom_ignores: bool = False,
 ) -> int:
     """Process a group of files with the same extension"""
@@ -762,7 +762,7 @@ def process_files(files: List[str], mode: Mode) -> int:
                 ext,
                 file_list,
                 mode,
-                input_directories if input_directories else None,
+                input_directories or None,
                 has_custom_ignores,
             ): ext
             for ext, file_list in file_groups.items()
@@ -783,7 +783,7 @@ def process_files(files: List[str], mode: Mode) -> int:
     return exit_code
 
 
-def main():
+def main() -> None:
     """Main entry point"""
     setup_logging()
 
