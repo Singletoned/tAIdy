@@ -1,17 +1,17 @@
 #!/usr/bin/env python3
 """Taidy CLI - Smart linter/formatter with automatic tool detection."""
 
-import os
-import sys
-import subprocess
-import shutil
 import fnmatch
-from pathlib import Path
-from enum import Enum
-from typing import List, Dict, Tuple, Callable
-from dataclasses import dataclass
-from concurrent.futures import ThreadPoolExecutor, as_completed
+import os
+import shutil
+import subprocess
+import sys
 import threading
+from concurrent.futures import ThreadPoolExecutor, as_completed
+from dataclasses import dataclass
+from enum import Enum
+from pathlib import Path
+from typing import Callable, Dict, List, Tuple
 
 import yaml
 
@@ -535,9 +535,7 @@ def show_usage():
     print("  format   Format files only (no linting)", file=sys.stderr)
     print("  (none)   Both lint and format (default)", file=sys.stderr)
     print("\nExamples:", file=sys.stderr)
-    print(
-        "  taidy file.py               # Lint and format a single file", file=sys.stderr
-    )
+    print("  taidy file.py               # Lint and format a single file", file=sys.stderr)
     print(
         "  taidy .                     # Process all supported files in current directory",
         file=sys.stderr,
@@ -557,15 +555,11 @@ def show_help():
     print("Taidy - Smart linter/formatter with automatic tool detection\n")
     show_usage()
     print("\nDirectory Processing:")
-    print(
-        "  When a directory is specified, taidy recursively finds all supported files"
-    )
+    print("  When a directory is specified, taidy recursively finds all supported files")
     print("  and processes them. Common directories like .git/, node_modules/, and")
     print("  __pycache__/ are automatically ignored.")
     print("\nSupported file types and linters:")
-    print(
-        "  Python:     ruff → uvx ruff → black → flake8 → pylint → python -m py_compile"
-    )
+    print("  Python:     ruff → uvx ruff → black → flake8 → pylint → python -m py_compile")
     print("  JavaScript: eslint → prettier → node --check")
     print("  TypeScript: eslint → tsc --noEmit → prettier")
     print("  Go:         gofmt")
@@ -573,9 +567,7 @@ def show_help():
     print("  Ruby:       rubocop")
     print("  PHP:        php-cs-fixer")
     print("  SQL:        sqlfluff → uvx sqlfluff")
-    print(
-        "  Shell:      shellcheck → beautysh (linting), shfmt → beautysh (formatting)"
-    )
+    print("  Shell:      shellcheck → beautysh (linting), shfmt → beautysh (formatting)")
     print("  JSON/CSS:   prettier")
     print(
         "\nTaidy automatically detects which linters are available and uses the best one for each file type."
@@ -638,7 +630,9 @@ def execute_linters(commands: List[LinterCommand], file_list: List[str]) -> int:
     return 2  # No available command found
 
 
-def process_file_group(ext: str, file_list: List[str], mode: Mode, original_dirs: List[str] = None) -> int:
+def process_file_group(
+    ext: str, file_list: List[str], mode: Mode, original_dirs: List[str] = None
+) -> int:
     """Process a group of files with the same extension"""
     exit_code = 0
 
@@ -652,7 +646,7 @@ def process_file_group(ext: str, file_list: List[str], mode: Mode, original_dirs
                     if linter_cmd.available() and linter_cmd.supports_directories:
                         inputs = original_dirs
                         break
-            
+
             result = execute_linters(LINTER_MAP[ext], inputs)
             if result == 2:
                 with output_lock:
@@ -670,7 +664,7 @@ def process_file_group(ext: str, file_list: List[str], mode: Mode, original_dirs
                     if formatter_cmd.available() and formatter_cmd.supports_directories:
                         inputs = original_dirs
                         break
-            
+
             result = execute_linters(FORMATTER_MAP[ext], inputs)
             if result == 2:
                 with output_lock:
@@ -685,7 +679,7 @@ def process_files(files: List[str], mode: Mode) -> int:
     """Process files according to the specified mode"""
     # Track which inputs were directories for potential direct passing to formatters
     input_directories = [f for f in files if os.path.isdir(f) and os.path.exists(f)]
-    
+
     # Expand directories to files
     expanded_files = []
     for file_or_dir in files:
@@ -734,12 +728,16 @@ def process_files(files: List[str], mode: Mode) -> int:
     exit_code = 0
 
     # Use ThreadPoolExecutor for parallel processing
-    with ThreadPoolExecutor(
-        max_workers=min(len(file_groups), os.cpu_count() or 1)
-    ) as executor:
+    with ThreadPoolExecutor(max_workers=min(len(file_groups), os.cpu_count() or 1)) as executor:
         # Submit all file groups for processing
         future_to_ext = {
-            executor.submit(process_file_group, ext, file_list, mode, input_directories if input_directories else None): ext
+            executor.submit(
+                process_file_group,
+                ext,
+                file_list,
+                mode,
+                input_directories if input_directories else None,
+            ): ext
             for ext, file_list in file_groups.items()
         }
 
