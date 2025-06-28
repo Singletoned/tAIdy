@@ -2,6 +2,7 @@
 """Taidy CLI - Smart linter/formatter with automatic tool detection."""
 
 import fnmatch
+import logging
 import os
 import shutil
 import subprocess
@@ -67,6 +68,20 @@ CONFIGURATION_TEXT = """Configuration:
       - '*.generated.*'
 """.strip()
 
+# Configure logging
+logger = logging.getLogger(__name__)
+
+
+def setup_logging():
+    """Setup logging to stdout with appropriate format"""
+    # Only setup if not already configured
+    if not logger.handlers:
+        handler = logging.StreamHandler(sys.stdout)
+        formatter = logging.Formatter("%(levelname)s: %(message)s")
+        handler.setFormatter(formatter)
+        logger.addHandler(handler)
+        logger.setLevel(logging.INFO)
+
 
 class Mode(Enum):
     BOTH = "both"  # Both lint and format
@@ -101,7 +116,7 @@ def load_config(start_path: str = ".") -> Dict:
                     config = yaml.safe_load(f) or {}
                     return config
             except Exception as e:
-                print(f"Warning: Failed to parse {config_file}: {e}", file=sys.stderr)
+                logger.warning(f"Failed to parse {config_file}: {e}")
                 return {}
 
     return {}
@@ -607,7 +622,7 @@ def execute_linters(commands: List[LinterCommand], file_list: List[str]) -> int:
             cmd, args = linter_cmd.command(file_list)
 
             with output_lock:
-                print(f"Running: {cmd} {' '.join(args)}", flush=True)
+                logger.info(f"Running: {cmd} {' '.join(args)}")
 
             try:
                 result = subprocess.run([cmd] + args, capture_output=True, text=True)
@@ -622,15 +637,11 @@ def execute_linters(commands: List[LinterCommand], file_list: List[str]) -> int:
                 return result.returncode
             except FileNotFoundError:
                 with output_lock:
-                    print(
-                        f"Error executing {cmd}: command not found",
-                        file=sys.stderr,
-                        flush=True,
-                    )
+                    logger.error(f"Error executing {cmd}: command not found")
                 return 127  # Standard exit code for command not found
             except Exception as e:
                 with output_lock:
-                    print(f"Error executing {cmd}: {e}", file=sys.stderr, flush=True)
+                    logger.error(f"Error executing {cmd}: {e}")
                 return 1  # General error
 
     return 2  # No available command found
@@ -656,7 +667,7 @@ def process_file_group(
             result = execute_linters(LINTER_MAP[ext], inputs)
             if result == 2:
                 with output_lock:
-                    print(f"Warning: No available linter found for {ext} files")
+                    logger.warning(f"No available linter found for {ext} files")
             elif result != 0:
                 exit_code = result
 
@@ -674,7 +685,7 @@ def process_file_group(
             result = execute_linters(FORMATTER_MAP[ext], inputs)
             if result == 2:
                 with output_lock:
-                    print(f"Warning: No available formatter found for {ext} files")
+                    logger.warning(f"No available formatter found for {ext} files")
             elif result != 0:
                 exit_code = result
 
@@ -690,16 +701,16 @@ def process_files(files: List[str], mode: Mode) -> int:
     expanded_files = []
     for file_or_dir in files:
         if not os.path.exists(file_or_dir):
-            print(f"Warning: Path {file_or_dir} does not exist, skipping")
+            logger.warning(f"Path {file_or_dir} does not exist, skipping")
             continue
 
         if os.path.isdir(file_or_dir):
             discovered = discover_files_in_directory(file_or_dir)
             if discovered:
-                print(f"Discovered {len(discovered)} supported files in {file_or_dir}")
+                logger.info(f"Discovered {len(discovered)} supported files in {file_or_dir}")
                 expanded_files.extend(discovered)
             else:
-                print(f"Warning: No supported files found in directory {file_or_dir}")
+                logger.warning(f"No supported files found in directory {file_or_dir}")
         else:
             expanded_files.append(file_or_dir)
 
@@ -723,11 +734,11 @@ def process_files(files: List[str], mode: Mode) -> int:
                 file_groups[ext] = []
             file_groups[ext].append(file)
         else:
-            print(f"Warning: No linter configured for file {file} (extension: {ext})")
+            logger.warning(f"No linter configured for file {file} (extension: {ext})")
 
     # Check if any files will be processed
     if not file_groups:
-        print("No supported files provided, no files were linted")
+        logger.info("No supported files provided, no files were linted")
         return 0
 
     # Execute linters/formatters for each file extension in parallel
@@ -756,7 +767,7 @@ def process_files(files: List[str], mode: Mode) -> int:
                     exit_code = result
             except Exception as e:
                 with output_lock:
-                    print(f"Error processing {ext} files: {e}", file=sys.stderr)
+                    logger.error(f"Error processing {ext} files: {e}")
                 exit_code = 1
 
     return exit_code
@@ -764,6 +775,8 @@ def process_files(files: List[str], mode: Mode) -> int:
 
 def main():
     """Main entry point"""
+    setup_logging()
+
     if len(sys.argv) < 2:
         show_usage()
         sys.exit(1)
