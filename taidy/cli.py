@@ -20,6 +20,53 @@ VERSION = "0.1.0"
 GIT_COMMIT = "unknown"
 BUILD_DATE = "unknown"
 
+# Help text constants
+USAGE_TEXT = """
+Usage: taidy [command] <files_or_directories...>
+
+Commands:
+  lint     Lint files only (no formatting)
+  format   Format files only (no linting)
+  (none)   Both lint and format (default)
+
+Examples:
+  taidy file.py               # Lint and format a single file
+  taidy .                     # Process all supported files in current directory
+  taidy src/                  # Process all supported files in src/ directory
+  taidy lint file1.py file2.js  # Lint multiple files
+
+Flags:
+  -h, --help     Show this help message
+  -v, --version  Show version information"""
+
+DIRECTORY_PROCESSING_TEXT = """Directory Processing:
+  When a directory is specified, taidy recursively finds all supported files
+  and processes them. Common directories like .git/, node_modules/, and
+  __pycache__/ are automatically ignored."""
+
+SUPPORTED_LANGUAGES_TEXT = """Supported file types and linters:
+  Python:     ruff → uvx ruff → black → flake8 → pylint → python -m py_compile
+  JavaScript: eslint → prettier → node --check
+  TypeScript: eslint → tsc --noEmit → prettier
+  Go:         gofmt
+  Rust:       rustfmt
+  Ruby:       rubocop
+  PHP:        php-cs-fixer
+  SQL:        sqlfluff → uvx sqlfluff
+  Shell:      shellcheck → beautysh (linting), shfmt → beautysh (formatting)
+  JSON/CSS:   prettier
+
+Taidy automatically detects which linters are available and uses the best one for each file type."""
+
+CONFIGURATION_TEXT = """Configuration:
+  Create a .taidy.yaml file in your project root to customize behavior.
+  Example configuration:
+    ignore:
+      - 'tests/fixtures/*'
+      - 'vendor/**'
+      - '*.generated.*'
+""".strip()
+
 
 class Mode(Enum):
     BOTH = "both"  # Both lint and format
@@ -528,57 +575,16 @@ FORMATTER_MAP: Dict[str, List[LinterCommand]] = {
 
 def show_usage():
     """Show usage information"""
-    prog_name = "taidy"
-    print(f"Usage: {prog_name} [command] <files_or_directories...>", file=sys.stderr)
-    print("\nCommands:", file=sys.stderr)
-    print("  lint     Lint files only (no formatting)", file=sys.stderr)
-    print("  format   Format files only (no linting)", file=sys.stderr)
-    print("  (none)   Both lint and format (default)", file=sys.stderr)
-    print("\nExamples:", file=sys.stderr)
-    print("  taidy file.py               # Lint and format a single file", file=sys.stderr)
-    print(
-        "  taidy .                     # Process all supported files in current directory",
-        file=sys.stderr,
-    )
-    print(
-        "  taidy src/                  # Process all supported files in src/ directory",
-        file=sys.stderr,
-    )
-    print("  taidy lint file1.py file2.js  # Lint multiple files", file=sys.stderr)
-    print("\nFlags:", file=sys.stderr)
-    print("  -h, --help     Show this help message", file=sys.stderr)
-    print("  -v, --version  Show version information", file=sys.stderr)
+    print(USAGE_TEXT, file=sys.stderr)
 
 
 def show_help():
     """Show detailed help information"""
     print("Taidy - Smart linter/formatter with automatic tool detection\n")
     show_usage()
-    print("\nDirectory Processing:")
-    print("  When a directory is specified, taidy recursively finds all supported files")
-    print("  and processes them. Common directories like .git/, node_modules/, and")
-    print("  __pycache__/ are automatically ignored.")
-    print("\nSupported file types and linters:")
-    print("  Python:     ruff → uvx ruff → black → flake8 → pylint → python -m py_compile")
-    print("  JavaScript: eslint → prettier → node --check")
-    print("  TypeScript: eslint → tsc --noEmit → prettier")
-    print("  Go:         gofmt")
-    print("  Rust:       rustfmt")
-    print("  Ruby:       rubocop")
-    print("  PHP:        php-cs-fixer")
-    print("  SQL:        sqlfluff → uvx sqlfluff")
-    print("  Shell:      shellcheck → beautysh (linting), shfmt → beautysh (formatting)")
-    print("  JSON/CSS:   prettier")
-    print(
-        "\nTaidy automatically detects which linters are available and uses the best one for each file type."
-    )
-    print("\nConfiguration:")
-    print("  Create a .taidy.yaml file in your project root to customize behavior.")
-    print("  Example configuration:")
-    print("    ignore:")
-    print("      - 'tests/fixtures/*'")
-    print("      - 'vendor/**'")
-    print("      - '*.generated.*'")
+    print(f"\n{DIRECTORY_PROCESSING_TEXT}")
+    print(f"\n{SUPPORTED_LANGUAGES_TEXT}")
+    print(f"\n{CONFIGURATION_TEXT}")
 
 
 def show_version():
