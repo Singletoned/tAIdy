@@ -648,7 +648,11 @@ def execute_linters(commands: List[LinterCommand], file_list: List[str]) -> int:
 
 
 def process_file_group(
-    ext: str, file_list: List[str], mode: Mode, original_dirs: List[str] = None
+    ext: str,
+    file_list: List[str],
+    mode: Mode,
+    original_dirs: List[str] = None,
+    has_custom_ignores: bool = False,
 ) -> int:
     """Process a group of files with the same extension"""
     exit_code = 0
@@ -657,7 +661,7 @@ def process_file_group(
         if ext in LINTER_MAP:
             # Check if we can use directory processing for linters
             inputs = file_list
-            if original_dirs:
+            if original_dirs and not has_custom_ignores:
                 # Find the first available linter that supports directories
                 for linter_cmd in LINTER_MAP[ext]:
                     if linter_cmd.available() and linter_cmd.supports_directories:
@@ -675,7 +679,7 @@ def process_file_group(
         if ext in FORMATTER_MAP:
             # Check if we can use directory processing for formatters
             inputs = file_list
-            if original_dirs:
+            if original_dirs and not has_custom_ignores:
                 # Find the first available formatter that supports directories
                 for formatter_cmd in FORMATTER_MAP[ext]:
                     if formatter_cmd.available() and formatter_cmd.supports_directories:
@@ -696,6 +700,11 @@ def process_files(files: List[str], mode: Mode) -> int:
     """Process files according to the specified mode"""
     # Track which inputs were directories for potential direct passing to formatters
     input_directories = [f for f in files if os.path.isdir(f) and os.path.exists(f)]
+
+    # Check if we have custom ignore patterns (beyond the defaults)
+    config = load_config(".")
+    config_ignores = config.get("ignore", [])
+    has_custom_ignores = len(config_ignores) > 0
 
     # Expand directories to files
     expanded_files = []
@@ -754,6 +763,7 @@ def process_files(files: List[str], mode: Mode) -> int:
                 file_list,
                 mode,
                 input_directories if input_directories else None,
+                has_custom_ignores,
             ): ext
             for ext, file_list in file_groups.items()
         }
