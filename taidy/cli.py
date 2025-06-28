@@ -33,6 +33,7 @@ class LinterCommand:
 
     available: Callable[[], bool]
     command: Callable[[List[str]], Tuple[str, List[str]]]
+    supports_directories: bool = False
 
 
 def is_command_available(cmd: str) -> bool:
@@ -138,10 +139,12 @@ LINTER_MAP: Dict[str, List[LinterCommand]] = {
         LinterCommand(
             available=lambda: is_command_available("ruff"),
             command=lambda files: ("ruff", ["check", "--quiet"] + files),
+            supports_directories=True,
         ),
         LinterCommand(
             available=lambda: is_command_available("uvx"),
             command=lambda files: ("uvx", ["ruff", "check", "--quiet"] + files),
+            supports_directories=True,
         ),
         LinterCommand(
             available=lambda: is_command_available("black"),
@@ -347,14 +350,17 @@ FORMATTER_MAP: Dict[str, List[LinterCommand]] = {
         LinterCommand(
             available=lambda: is_command_available("ruff"),
             command=lambda files: ("ruff", ["format", "--quiet"] + files),
+            supports_directories=True,
         ),
         LinterCommand(
             available=lambda: is_command_available("uvx"),
             command=lambda files: ("uvx", ["ruff", "format", "--quiet"] + files),
+            supports_directories=True,
         ),
         LinterCommand(
             available=lambda: is_command_available("black"),
             command=lambda files: ("black", ["--quiet"] + files),
+            supports_directories=True,
         ),
     ],
     ".js": [
@@ -364,6 +370,7 @@ FORMATTER_MAP: Dict[str, List[LinterCommand]] = {
                 "prettier",
                 ["--write", "--log-level", "error"] + files,
             ),
+            supports_directories=True,
         ),
     ],
     ".jsx": [
@@ -373,6 +380,7 @@ FORMATTER_MAP: Dict[str, List[LinterCommand]] = {
                 "prettier",
                 ["--write", "--log-level", "error"] + files,
             ),
+            supports_directories=True,
         ),
     ],
     ".ts": [
@@ -382,6 +390,7 @@ FORMATTER_MAP: Dict[str, List[LinterCommand]] = {
                 "prettier",
                 ["--write", "--log-level", "error"] + files,
             ),
+            supports_directories=True,
         ),
     ],
     ".tsx": [
@@ -391,6 +400,7 @@ FORMATTER_MAP: Dict[str, List[LinterCommand]] = {
                 "prettier",
                 ["--write", "--log-level", "error"] + files,
             ),
+            supports_directories=True,
         ),
     ],
     ".json": [
@@ -400,6 +410,7 @@ FORMATTER_MAP: Dict[str, List[LinterCommand]] = {
                 "prettier",
                 ["--write", "--log-level", "error"] + files,
             ),
+            supports_directories=True,
         ),
     ],
     ".css": [
@@ -409,6 +420,7 @@ FORMATTER_MAP: Dict[str, List[LinterCommand]] = {
                 "prettier",
                 ["--write", "--log-level", "error"] + files,
             ),
+            supports_directories=True,
         ),
     ],
     ".scss": [
@@ -418,6 +430,7 @@ FORMATTER_MAP: Dict[str, List[LinterCommand]] = {
                 "prettier",
                 ["--write", "--log-level", "error"] + files,
             ),
+            supports_directories=True,
         ),
     ],
     ".html": [
@@ -427,6 +440,7 @@ FORMATTER_MAP: Dict[str, List[LinterCommand]] = {
                 "prettier",
                 ["--write", "--log-level", "error"] + files,
             ),
+            supports_directories=True,
         ),
     ],
     ".md": [
@@ -436,24 +450,28 @@ FORMATTER_MAP: Dict[str, List[LinterCommand]] = {
                 "prettier",
                 ["--write", "--log-level", "error"] + files,
             ),
+            supports_directories=True,
         ),
     ],
     ".go": [
         LinterCommand(
             available=lambda: is_command_available("gofmt"),
             command=lambda files: ("gofmt", ["-w"] + files),
+            supports_directories=True,
         ),
     ],
     ".rs": [
         LinterCommand(
             available=lambda: is_command_available("rustfmt"),
             command=lambda files: ("rustfmt", ["--quiet"] + files),
+            supports_directories=True,
         ),
     ],
     ".rb": [
         LinterCommand(
             available=lambda: is_command_available("rubocop"),
             command=lambda files: ("rubocop", ["-a", "--quiet"] + files),
+            supports_directories=True,
         ),
     ],
     ".php": [
@@ -620,13 +638,22 @@ def execute_linters(commands: List[LinterCommand], file_list: List[str]) -> int:
     return 2  # No available command found
 
 
-def process_file_group(ext: str, file_list: List[str], mode: Mode) -> int:
+def process_file_group(ext: str, file_list: List[str], mode: Mode, original_dirs: List[str] = None) -> int:
     """Process a group of files with the same extension"""
     exit_code = 0
 
     if mode in [Mode.LINT, Mode.BOTH]:
         if ext in LINTER_MAP:
-            result = execute_linters(LINTER_MAP[ext], file_list)
+            # Check if we can use directory processing for linters
+            inputs = file_list
+            if original_dirs:
+                # Find the first available linter that supports directories
+                for linter_cmd in LINTER_MAP[ext]:
+                    if linter_cmd.available() and linter_cmd.supports_directories:
+                        inputs = original_dirs
+                        break
+            
+            result = execute_linters(LINTER_MAP[ext], inputs)
             if result == 2:
                 with output_lock:
                     print(f"Warning: No available linter found for {ext} files")
@@ -635,7 +662,16 @@ def process_file_group(ext: str, file_list: List[str], mode: Mode) -> int:
 
     if mode in [Mode.FORMAT, Mode.BOTH]:
         if ext in FORMATTER_MAP:
-            result = execute_linters(FORMATTER_MAP[ext], file_list)
+            # Check if we can use directory processing for formatters
+            inputs = file_list
+            if original_dirs:
+                # Find the first available formatter that supports directories
+                for formatter_cmd in FORMATTER_MAP[ext]:
+                    if formatter_cmd.available() and formatter_cmd.supports_directories:
+                        inputs = original_dirs
+                        break
+            
+            result = execute_linters(FORMATTER_MAP[ext], inputs)
             if result == 2:
                 with output_lock:
                     print(f"Warning: No available formatter found for {ext} files")
@@ -647,6 +683,9 @@ def process_file_group(ext: str, file_list: List[str], mode: Mode) -> int:
 
 def process_files(files: List[str], mode: Mode) -> int:
     """Process files according to the specified mode"""
+    # Track which inputs were directories for potential direct passing to formatters
+    input_directories = [f for f in files if os.path.isdir(f) and os.path.exists(f)]
+    
     # Expand directories to files
     expanded_files = []
     for file_or_dir in files:
@@ -700,7 +739,7 @@ def process_files(files: List[str], mode: Mode) -> int:
     ) as executor:
         # Submit all file groups for processing
         future_to_ext = {
-            executor.submit(process_file_group, ext, file_list, mode): ext
+            executor.submit(process_file_group, ext, file_list, mode, input_directories if input_directories else None): ext
             for ext, file_list in file_groups.items()
         }
 
