@@ -11,13 +11,7 @@ from enum import Enum
 from typing import List, Dict, Tuple, Callable
 from dataclasses import dataclass
 
-# Optional YAML support
-try:
-    import yaml
-
-    HAS_YAML = True
-except ImportError:
-    HAS_YAML = False
+import yaml
 
 # Version information - can be overridden at build time
 VERSION = "0.1.0"
@@ -46,9 +40,6 @@ def is_command_available(cmd: str) -> bool:
 
 def load_config(start_path: str = ".") -> Dict:
     """Load configuration from .taidy.yaml file, searching up directory tree"""
-    if not HAS_YAML:
-        return {}
-
     current_path = Path(start_path).resolve()
 
     # Search up directory tree for .taidy.yaml

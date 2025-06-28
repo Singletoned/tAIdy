@@ -8,6 +8,9 @@ version = "0.1.0"
 description = "Smart linter/formatter with automatic tool detection"
 readme = "README.md"
 requires-python = ">=3.6"
+dependencies = [
+    "pyyaml",
+]
 license = "MIT"
 authors = [
     {name = "singletoned"},
@@ -61,9 +64,6 @@ dev = [
     "pytest",
     "black",
     "ruff",
-]
-config = [
-    "pyyaml",
 ]
 
 [tool.setuptools.packages.find]
