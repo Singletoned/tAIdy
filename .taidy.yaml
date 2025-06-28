@@ -1,0 +1,13 @@
+# Taidy configuration file
+# This file configures which files and directories to ignore during linting/formatting
+
+ignore:
+  # Test files with intentional issues
+  - "tests/sample_files/*"
+  - "tests/test_files/*"
+
+  # Additional patterns can be added as needed
+  # Examples:
+  # - "vendor/**"
+  # - "*.generated.*"
+  # - "tmp/*"
