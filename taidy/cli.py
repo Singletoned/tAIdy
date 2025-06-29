@@ -98,9 +98,15 @@ class LinterCommand:
     supports_directories: bool = False
 
 
+# Cache for command availability to avoid repeated shutil.which() calls
+_command_availability_cache: Dict[str, bool] = {}
+
+
 def is_command_available(cmd: str) -> bool:
-    """Check if a command is available in PATH"""
-    return shutil.which(cmd) is not None
+    """Check if a command is available in PATH, with caching"""
+    if cmd not in _command_availability_cache:
+        _command_availability_cache[cmd] = shutil.which(cmd) is not None
+    return _command_availability_cache[cmd]
 
 
 def load_config(start_path: str = ".") -> Dict[str, Any]:
