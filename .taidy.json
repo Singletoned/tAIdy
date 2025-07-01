@@ -1,0 +1,4 @@
+{
+  "_comment": "Taidy configuration file - configures which files and directories to ignore during linting/formatting",
+  "ignore": ["tests/sample_files/*", "tests/test_files/*"]
+}

@@ -2,6 +2,7 @@
 """Taidy CLI - Smart linter/formatter with automatic tool detection."""
 
 import fnmatch
+import json
 import logging
 import os
 import shutil
@@ -13,8 +14,6 @@ from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
-
-import yaml
 
 # Version information - can be overridden at build time
 VERSION = "0.1.0"
@@ -60,12 +59,15 @@ SUPPORTED_LANGUAGES_TEXT = """Supported file types and linters:
 Taidy automatically detects which linters are available and uses the best one for each file type."""
 
 CONFIGURATION_TEXT = """Configuration:
-  Create a .taidy.yaml file in your project root to customize behavior.
+  Create a .taidy.json file in your project root to customize behavior.
   Example configuration:
-    ignore:
-      - 'tests/fixtures/*'
-      - 'vendor/**'
-      - '*.generated.*'
+    {
+      "ignore": [
+        "tests/fixtures/*",
+        "vendor/**",
+        "*.generated.*"
+      ]
+    }
 """.strip()
 
 # Configure logging
@@ -110,16 +112,16 @@ def is_command_available(cmd: str) -> bool:
 
 
 def load_config(start_path: str = ".") -> Dict[str, Any]:
-    """Load configuration from .taidy.yaml file, searching up directory tree"""
+    """Load configuration from .taidy.json file, searching up directory tree"""
     current_path = Path(start_path).resolve()
 
-    # Search up directory tree for .taidy.yaml
+    # Search up directory tree for .taidy.json
     for path in [current_path] + list(current_path.parents):
-        config_file = path / ".taidy.yaml"
+        config_file = path / ".taidy.json"
         if config_file.exists():
             try:
                 with open(config_file, "r") as f:
-                    config = yaml.safe_load(f) or {}
+                    config = json.load(f) or {}
                     return config
             except Exception as e:
                 logger.warning(f"Failed to parse {config_file}: {e}")

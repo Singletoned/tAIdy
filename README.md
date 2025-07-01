@@ -157,7 +157,7 @@ MIT License - see [LICENSE](LICENSE) file for details.
 
 ## Roadmap
 
-- [ ] Configuration file support (.taidy.yaml)
+- [x] Configuration file support (.taidy.json)
 - [ ] Custom linter definitions
 - [ ] Parallel execution for multiple files
 - [ ] Plugin system
