@@ -23,3 +23,6 @@ clean:
     rm -rf dist/ build/ *.egg-info/
     rm -rf __pycache__ *.pyc
     rm -rf taidy/__pycache__ taidy/*.pyc
+
+format *files:
+    taidy {{ if files == "" { "." } else { files } }}
