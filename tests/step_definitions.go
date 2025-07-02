@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"os/exec"
 	"regexp"
 	"strconv"
 	"strings"
@@ -834,7 +835,119 @@ func (tctx *TestContainerTestContext) taidyPoorlyFormattedmdIsRun() error {
 	return nil
 }
 
+// Helper functions for executing commands on the host system
+func executeHostCommand(name string, args ...string) (string, error) {
+	cmd := exec.Command(name, args...)
+	output, err := cmd.CombinedOutput()
+	return string(output), err
+}
+
+func executeHostCommandWithOutput(name string, args ...string) (*CommandResult, error) {
+	cmd := exec.Command(name, args...)
+	output, err := cmd.CombinedOutput()
+	exitCode := 0
+	if err != nil {
+		if exitError, ok := err.(*exec.ExitError); ok {
+			exitCode = exitError.ExitCode()
+		} else {
+			return nil, err
+		}
+	}
+
+	return &CommandResult{
+		ExitCode: exitCode,
+		Stdout:   string(output),
+		Stderr:   "", // CombinedOutput combines stdout and stderr
+	}, nil
+}
+
+func executeHostCommandWriteFile(filename, content string) error {
+	cmd := exec.Command("bash", "-c", fmt.Sprintf("echo '%s' > %s", content, filename))
+	return cmd.Run()
+}
+
 // InitializeScenario initializes the test context for each scenario using testcontainers
+// Docker-related step definitions
+func (tctx *TestContainerTestContext) dockerIsAvailable() error {
+	// Check if Docker is available in the system
+	_, err := executeHostCommand("docker", "--version")
+	if err != nil {
+		return fmt.Errorf("Docker is not available: %w", err)
+	}
+	return nil
+}
+
+func (tctx *TestContainerTestContext) theDockerImageIsBuilt() error {
+	// Build the Docker image from project root (parent directory)
+	_, err := executeHostCommand("docker", "build", "-t", "taidy:latest", "..")
+	if err != nil {
+		return fmt.Errorf("failed to build Docker image: %w", err)
+	}
+	return nil
+}
+
+func (tctx *TestContainerTestContext) theImageBuildShouldSucceed() error {
+	// Check if the image exists
+	_, err := executeHostCommand("docker", "image", "inspect", "taidy:latest")
+	if err != nil {
+		return fmt.Errorf("Docker image build failed or image doesn't exist: %w", err)
+	}
+	return nil
+}
+
+func (tctx *TestContainerTestContext) theImageShouldContainAllRequiredTools() error {
+	// Test that key tools are available in the built image
+	requiredTools := []string{"ruff", "black", "prettier", "eslint", "gofmt", "rustfmt", "hadolint", "taplo"}
+
+	for _, tool := range requiredTools {
+		_, err := executeHostCommand("docker", "run", "--rm", "taidy:latest", "which", tool)
+		if err != nil {
+			return fmt.Errorf("required tool %s not found in Docker image: %w", tool, err)
+		}
+	}
+	return nil
+}
+
+func (tctx *TestContainerTestContext) theDockerImageExists() error {
+	// Ensure the Docker image exists (build it if needed)
+	_, err := executeHostCommand("docker", "image", "inspect", "taidy:latest")
+	if err != nil {
+		// Try to build the image
+		return tctx.theDockerImageIsBuilt()
+	}
+	return nil
+}
+
+func (tctx *TestContainerTestContext) taidyDockerIsCalledWithTheFiles() error {
+	if len(tctx.testFiles) == 0 {
+		return fmt.Errorf("no test files available")
+	}
+
+	// Create test file in current directory (which will be mounted)
+	testContent := "def hello():\\n    print('Hello World')\\n"
+	err := executeHostCommandWriteFile("../test_file.py", testContent)
+	if err != nil {
+		return fmt.Errorf("failed to create test file: %w", err)
+	}
+
+	// Run taidy docker command from the project root
+	cmd := "cd .. && python3 -m taidy docker test_file.py"
+	result, err := executeHostCommandWithOutput("bash", "-c", cmd)
+	if err != nil {
+		return fmt.Errorf("failed to execute taidy docker: %w", err)
+	}
+
+	tctx.commandResult = &CommandResult{
+		ExitCode: result.ExitCode,
+		Stdout:   result.Stdout,
+		Stderr:   result.Stderr,
+	}
+
+	// Clean up test file
+	executeHostCommand("rm", "-f", "../test_file.py")
+	return nil
+}
+
 func (tctx *TestContainerTestContext) InitializeScenario(ctx *godog.ScenarioContext) {
 	// File creation steps
 	ctx.Step(`^the following Python file exists:$`, tctx.theFollowingPythonFileExists)
@@ -887,6 +1000,14 @@ func (tctx *TestContainerTestContext) InitializeScenario(ctx *godog.ScenarioCont
 	ctx.Step(`^`+"`"+`taidy format poorly_formatted\.md`+"`"+` is run$`, tctx.taidyFormatPoorlyFormattedmdIsRun)
 	ctx.Step(`^`+"`"+`taidy lint poorly_formatted\.md`+"`"+` is run$`, tctx.taidyLintPoorlyFormattedmdIsRun)
 	ctx.Step(`^`+"`"+`taidy poorly_formatted\.md`+"`"+` is run$`, tctx.taidyPoorlyFormattedmdIsRun)
+
+	// Docker-related steps
+	ctx.Step(`^Docker is available$`, tctx.dockerIsAvailable)
+	ctx.Step(`^the Docker image is built$`, tctx.theDockerImageIsBuilt)
+	ctx.Step(`^the image build should succeed$`, tctx.theImageBuildShouldSucceed)
+	ctx.Step(`^the image should contain all required tools$`, tctx.theImageShouldContainAllRequiredTools)
+	ctx.Step(`^the Docker image exists$`, tctx.theDockerImageExists)
+	ctx.Step(`^taidy docker is called with the files$`, tctx.taidyDockerIsCalledWithTheFiles)
 
 	// Set scenario name and clean up after each scenario
 	ctx.Before(func(ctx context.Context, sc *godog.Scenario) (context.Context, error) {

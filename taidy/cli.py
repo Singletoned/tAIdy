@@ -28,6 +28,7 @@ Commands:
   lint     Lint files only (no formatting)
   format   Format files only (no linting)
   suggest  Analyze project and suggest tools to install
+  docker   Run taidy in Docker with all tools pre-installed
   (none)   Both lint and format (default)
 
 Examples:
@@ -36,6 +37,7 @@ Examples:
   taidy src/                  # Process all supported files in src/ directory
   taidy lint file1.py file2.js  # Lint multiple files
   taidy suggest               # Analyze project and suggest missing tools
+  taidy docker .              # Run taidy in Docker container with all tools
 
 Flags:
   -h, --help     Show this help message
@@ -472,7 +474,7 @@ LINTER_MAP: Dict[str, List[LinterCommand]] = {
     ".dockerfile": [
         LinterCommand(
             available=lambda: is_command_available("hadolint"),
-            command=lambda files: ("hadolint", ["--quiet"] + files),
+            command=lambda files: ("hadolint", files),
         ),
     ],
     ".github-workflow": [
@@ -1028,8 +1030,7 @@ def get_tool_suggestions(extensions: Set[str]) -> Dict[str, List[str]]:
         "tflint": "brew install tflint (macOS) or https://github.com/terraform-linters/tflint",
         "hadolint": "brew install hadolint (macOS) or https://github.com/hadolint/hadolint",
         "actionlint": (
-            "brew install actionlint (macOS) or "
-            "go install github.com/rhymond/actionlint/cmd/actionlint@latest"
+            "brew install actionlint (macOS) or go install github.com/rhymond/actionlint@latest"
         ),
     }
 
@@ -1098,6 +1099,73 @@ def suggest_tools() -> int:
     return 0
 
 
+def docker_run(args: List[str]) -> int:
+    """Run taidy in Docker container with all tools pre-installed"""
+    docker_image = "taidy:latest"
+
+    # Check if Docker is available
+    if not is_command_available("docker"):
+        print("❌ Docker is not installed or not available in PATH.", file=sys.stderr)
+        print("Please install Docker to use this feature.", file=sys.stderr)
+        return 1
+
+    # Check if the Docker image exists, build it if not
+    try:
+        result = subprocess.run(
+            ["docker", "image", "inspect", docker_image], capture_output=True, text=True
+        )
+        if result.returncode != 0:
+            print(f"🔨 Docker image '{docker_image}' not found. Building it now...")
+            print("This may take several minutes on first run...")
+
+            # Build the Docker image
+            build_result = subprocess.run(
+                ["docker", "build", "-t", docker_image, "."], cwd=os.getcwd()
+            )
+
+            if build_result.returncode != 0:
+                print("❌ Failed to build Docker image.", file=sys.stderr)
+                return 1
+
+            print(f"✅ Successfully built Docker image '{docker_image}'")
+
+    except Exception as e:
+        print(f"❌ Error checking Docker image: {e}", file=sys.stderr)
+        return 1
+
+    # Get current working directory for mounting
+    current_dir = os.getcwd()
+
+    # Build Docker command
+    docker_cmd = [
+        "docker",
+        "run",
+        "--rm",  # Remove container after run
+        "-v",
+        f"{current_dir}:/workspace",  # Mount current directory
+        "-w",
+        "/workspace",  # Set working directory
+        docker_image,
+    ] + args
+
+    print("🐳 Running taidy in Docker container...")
+    args_str = " ".join(args)
+    print(
+        f"Command: docker run --rm -v {current_dir}:/workspace -w /workspace {docker_image} {args_str}"
+    )
+
+    # Execute the Docker command
+    try:
+        result = subprocess.run(docker_cmd)
+        return result.returncode
+    except KeyboardInterrupt:
+        print("\n⚠️  Interrupted by user")
+        return 130
+    except Exception as e:
+        print(f"❌ Error running Docker container: {e}", file=sys.stderr)
+        return 1
+
+
 def main() -> None:
     """Main entry point"""
     setup_logging()
@@ -1133,6 +1201,12 @@ def main() -> None:
         files = sys.argv[2:]
     elif sys.argv[1] == "suggest":
         exit_code = suggest_tools()
+        sys.exit(exit_code)
+    elif sys.argv[1] == "docker":
+        if len(sys.argv) < 3:
+            show_usage()
+            sys.exit(1)
+        exit_code = docker_run(sys.argv[2:])
         sys.exit(exit_code)
     else:
         # No subcommand, treat first arg as file
