@@ -446,7 +446,7 @@ LINTER_MAP: Dict[str, List[LinterCommand]] = {
     ".toml": [
         LinterCommand(
             available=lambda: is_command_available("taplo"),
-            command=lambda files: ("taplo", ["check", "--quiet"] + files),
+            command=lambda files: ("taplo", ["check"] + files),
         ),
     ],
     ".tf": [
