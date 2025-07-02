@@ -10,41 +10,39 @@ readme = "README.md"
 requires-python = ">=3.6"
 dependencies = []
 license = "MIT"
-authors = [
-    {name = "singletoned"},
-]
+authors = [{ name = "singletoned" }]
 keywords = [
-    "linter",
-    "formatter", 
-    "python",
-    "javascript",
-    "typescript",
-    "go",
-    "rust",
-    "ruby",
-    "php",
-    "shell",
-    "css",
-    "json",
-    "html",
-    "markdown",
+  "linter",
+  "formatter",
+  "python",
+  "javascript",
+  "typescript",
+  "go",
+  "rust",
+  "ruby",
+  "php",
+  "shell",
+  "css",
+  "json",
+  "html",
+  "markdown",
 ]
 classifiers = [
-    "Development Status :: 4 - Beta",
-    "Environment :: Console",
-    "Intended Audience :: Developers",
-    "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.6",
-    "Programming Language :: Python :: 3.7",
-    "Programming Language :: Python :: 3.8",
-    "Programming Language :: Python :: 3.9",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Topic :: Software Development :: Quality Assurance",
-    "Topic :: Software Development :: Libraries :: Python Modules",
-    "Topic :: Utilities",
+  "Development Status :: 4 - Beta",
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.6",
+  "Programming Language :: Python :: 3.7",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Topic :: Software Development :: Quality Assurance",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+  "Topic :: Utilities",
 ]
 
 [project.urls]
@@ -57,11 +55,7 @@ Changelog = "https://github.com/singletoned/taidy/blob/main/CHANGELOG.md"
 taidy = "taidy.cli:main"
 
 [project.optional-dependencies]
-dev = [
-    "pytest",
-    "black",
-    "ruff",
-]
+dev = ["pytest", "black", "ruff"]
 
 [tool.setuptools.packages.find]
 include = ["taidy*"]
