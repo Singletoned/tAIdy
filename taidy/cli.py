@@ -27,6 +27,7 @@ Usage: taidy [command] <files_or_directories...>
 Commands:
   lint     Lint files only (no formatting)
   format   Format files only (no linting)
+  suggest  Analyze project and suggest tools to install
   (none)   Both lint and format (default)
 
 Examples:
@@ -34,6 +35,7 @@ Examples:
   taidy .                     # Process all supported files in current directory
   taidy src/                  # Process all supported files in src/ directory
   taidy lint file1.py file2.js  # Lint multiple files
+  taidy suggest               # Analyze project and suggest missing tools
 
 Flags:
   -h, --help     Show this help message
@@ -916,6 +918,186 @@ def process_files(files: List[str], mode: Mode) -> int:
     return exit_code
 
 
+def analyze_project_files(directory: str = ".") -> Dict[str, Set[str]]:
+    """Analyze project files and return found extensions and their tools"""
+    found_extensions = set()
+
+    # Discover all files in the project
+    all_files = discover_files_in_directory(directory)
+
+    # Extract extensions and special cases
+    for file_path_str in all_files:
+        file_path = Path(file_path_str)
+        ext = file_path.suffix.lower()
+
+        # Handle special cases
+        if file_path.name.lower() == "dockerfile":
+            found_extensions.add(".dockerfile")
+        elif ext in [".yml", ".yaml"] and ".github/workflows" in str(file_path):
+            found_extensions.add(".github-workflow")
+        elif ext:
+            found_extensions.add(ext)
+
+    # Group by available vs missing tools
+    result = {
+        "available_linters": set(),
+        "missing_linters": set(),
+        "available_formatters": set(),
+        "missing_formatters": set(),
+        "found_extensions": found_extensions,
+    }
+
+    for ext in found_extensions:
+        # Check linters
+        if ext in LINTER_MAP:
+            available_linter = None
+            for linter_cmd in LINTER_MAP[ext]:
+                if linter_cmd.available():
+                    available_linter = linter_cmd
+                    break
+
+            if available_linter:
+                result["available_linters"].add(ext)
+            else:
+                result["missing_linters"].add(ext)
+
+        # Check formatters
+        if ext in FORMATTER_MAP:
+            available_formatter = None
+            for formatter_cmd in FORMATTER_MAP[ext]:
+                if formatter_cmd.available():
+                    available_formatter = formatter_cmd
+                    break
+
+            if available_formatter:
+                result["available_formatters"].add(ext)
+            else:
+                result["missing_formatters"].add(ext)
+
+    return result
+
+
+def get_tool_suggestions(extensions: Set[str]) -> Dict[str, List[str]]:
+    """Get tool installation suggestions for missing extensions"""
+    suggestions = {}
+
+    # Map extensions to their primary recommended tools
+    tool_recommendations = {
+        ".py": ["ruff", "black"],
+        ".js": ["eslint", "prettier"],
+        ".jsx": ["eslint", "prettier"],
+        ".ts": ["eslint", "tsc", "prettier"],
+        ".tsx": ["eslint", "tsc", "prettier"],
+        ".go": ["gofmt"],
+        ".rs": ["rustfmt"],
+        ".rb": ["rubocop"],
+        ".php": ["php-cs-fixer"],
+        ".sh": ["shellcheck", "shfmt"],
+        ".bash": ["shellcheck", "shfmt"],
+        ".zsh": ["shellcheck", "shfmt"],
+        ".json": ["prettier"],
+        ".css": ["prettier"],
+        ".scss": ["prettier"],
+        ".html": ["prettier"],
+        ".md": ["prettier"],
+        ".yaml": ["yamllint", "prettier"],
+        ".yml": ["yamllint", "prettier"],
+        ".toml": ["taplo"],
+        ".tf": ["terraform", "tflint"],
+        ".tfvars": ["terraform", "tflint"],
+        ".dockerfile": ["hadolint"],
+        ".github-workflow": ["actionlint", "yamllint", "prettier"],
+    }
+
+    # Installation commands for different tools
+    install_commands = {
+        "ruff": "pip install ruff",
+        "black": "pip install black",
+        "eslint": "npm install -g eslint",
+        "prettier": "npm install -g prettier",
+        "tsc": "npm install -g typescript",
+        "gofmt": "install Go",
+        "rustfmt": "install Rust",
+        "rubocop": "gem install rubocop",
+        "php-cs-fixer": "composer global require friendsofphp/php-cs-fixer",
+        "shellcheck": "brew install shellcheck (macOS) or apt install shellcheck (Ubuntu)",
+        "shfmt": "brew install shfmt (macOS) or go install mvdan.cc/sh/v3/cmd/shfmt@latest",
+        "yamllint": "pip install yamllint",
+        "taplo": "brew install taplo (macOS) or cargo install taplo-cli",
+        "terraform": "https://terraform.io/downloads",
+        "tflint": "brew install tflint (macOS) or https://github.com/terraform-linters/tflint",
+        "hadolint": "brew install hadolint (macOS) or https://github.com/hadolint/hadolint",
+        "actionlint": (
+            "brew install actionlint (macOS) or "
+            "go install github.com/rhymond/actionlint/cmd/actionlint@latest"
+        ),
+    }
+
+    for ext in extensions:
+        if ext in tool_recommendations:
+            ext_suggestions = []
+            for tool in tool_recommendations[ext]:
+                if not is_command_available(tool):
+                    install_cmd = install_commands.get(tool, f"install {tool}")
+                    ext_suggestions.append(f"{tool}: {install_cmd}")
+
+            if ext_suggestions:
+                suggestions[ext] = ext_suggestions
+
+    return suggestions
+
+
+def suggest_tools() -> int:
+    """Analyze project and suggest missing tools"""
+    print("🔍 Analyzing project files...")
+
+    analysis = analyze_project_files()
+    found_extensions = analysis["found_extensions"]
+
+    if not found_extensions:
+        print("No supported files found in project.")
+        return 0
+
+    print(f"\n📁 Found file types: {', '.join(sorted(found_extensions))}")
+
+    # Show what's already available
+    if analysis["available_linters"] or analysis["available_formatters"]:
+        print("\n✅ Available tools:")
+        all_available = analysis["available_linters"] | analysis["available_formatters"]
+        for ext in sorted(all_available):
+            tools = []
+            if ext in LINTER_MAP:
+                for linter_cmd in LINTER_MAP[ext]:
+                    if linter_cmd.available():
+                        cmd, _ = linter_cmd.command([])
+                        tools.append(cmd)
+                        break
+            if ext in FORMATTER_MAP:
+                for formatter_cmd in FORMATTER_MAP[ext]:
+                    if formatter_cmd.available():
+                        cmd, _ = formatter_cmd.command([])
+                        if cmd not in tools:
+                            tools.append(cmd)
+                        break
+            print(f"  {ext}: {', '.join(tools)}")
+
+    # Show suggested installations
+    missing_extensions = analysis["missing_linters"] | analysis["missing_formatters"]
+
+    if missing_extensions:
+        print("\n💡 Suggested tool installations:")
+        suggestions = get_tool_suggestions(missing_extensions)
+
+        for ext in sorted(suggestions.keys()):
+            print(f"\n  {ext} files:")
+            for suggestion in suggestions[ext]:
+                print(f"    {suggestion}")
+    else:
+        print("\n🎉 All recommended tools are already available!")
+
+    return 0
+
+
 def main() -> None:
     """Main entry point"""
     setup_logging()
@@ -949,6 +1131,9 @@ def main() -> None:
             show_usage()
             sys.exit(1)
         files = sys.argv[2:]
+    elif sys.argv[1] == "suggest":
+        exit_code = suggest_tools()
+        sys.exit(exit_code)
     else:
         # No subcommand, treat first arg as file
         mode = Mode.BOTH
