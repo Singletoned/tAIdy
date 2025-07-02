@@ -57,7 +57,6 @@ func (tctx *TestContainerTestContext) determineEnvironment() string {
 	// Check for other linters
 	hasPrettier := contains(tctx.requiredLinters, "prettier")
 	hasGofmt := contains(tctx.requiredLinters, "gofmt")
-	hasSqlfluff := contains(tctx.requiredLinters, "sqlfluff")
 	hasShellcheck := contains(tctx.requiredLinters, "shellcheck")
 	hasShfmt := contains(tctx.requiredLinters, "shfmt")
 	hasBeautysh := contains(tctx.requiredLinters, "beautysh")
@@ -74,9 +73,6 @@ func (tctx *TestContainerTestContext) determineEnvironment() string {
 	}
 
 	// Other environments
-	if hasSqlfluff {
-		return "python311-sqlfluff"
-	}
 	if hasShellcheck || hasShfmt || hasBeautysh {
 		return "shell-tools"
 	}
@@ -143,12 +139,6 @@ func (tctx *TestContainerTestContext) thePythonFileExists(filename string) error
 	return nil
 }
 
-func (tctx *TestContainerTestContext) theSQLFileExists(filename string) error {
-	// Store the filename for later - don't set up container yet
-	// This allows subsequent steps to determine the correct environment
-	tctx.testFiles = append(tctx.testFiles, filename)
-	return nil
-}
 
 func (tctx *TestContainerTestContext) theShellFileExists(filename string) error {
 	// Store the filename for later - don't set up container yet
@@ -225,12 +215,6 @@ func (tctx *TestContainerTestContext) linterIsInstalled(linter string) error {
 					return fmt.Errorf("failed to copy Python file %s: %w", filename, err)
 				}
 			}
-			if strings.HasSuffix(filename, ".sql") && (linter == "sqlfluff" || linter == "uv") {
-				sourceFile := fmt.Sprintf("sample_files/%s", filename)
-				if err := tctx.currentContainer.CopyFileIntoContainer(sourceFile, filename); err != nil {
-					return fmt.Errorf("failed to copy SQL file %s: %w", filename, err)
-				}
-			}
 			if (strings.HasSuffix(filename, ".sh") || strings.HasSuffix(filename, ".bash") || strings.HasSuffix(filename, ".zsh")) && (linter == "shellcheck" || linter == "shfmt" || linter == "beautysh") {
 				sourceFile := fmt.Sprintf("sample_files/%s", filename)
 				if err := tctx.currentContainer.CopyFileIntoContainer(sourceFile, filename); err != nil {
@@ -285,12 +269,6 @@ func (tctx *TestContainerTestContext) taidyIsCalledWithFilenames(filePattern str
 					return fmt.Errorf("failed to copy Python file %s: %w", filename, err)
 				}
 			}
-			if strings.HasSuffix(filename, ".sql") {
-				sourceFile := fmt.Sprintf("sample_files/%s", filename)
-				if err := tctx.currentContainer.CopyFileIntoContainer(sourceFile, filename); err != nil {
-					return fmt.Errorf("failed to copy SQL file %s: %w", filename, err)
-				}
-			}
 			if strings.HasSuffix(filename, ".sh") || strings.HasSuffix(filename, ".bash") || strings.HasSuffix(filename, ".zsh") {
 				sourceFile := fmt.Sprintf("sample_files/%s", filename)
 				if err := tctx.currentContainer.CopyFileIntoContainer(sourceFile, filename); err != nil {
@@ -327,7 +305,6 @@ func (tctx *TestContainerTestContext) taidyIsCalledWithFilenames(filePattern str
 		"JSON":       `\.json$`,
 		"CSS":        `\.(css|scss)$`,
 		"HTML":       `\.html$`,
-		"SQL":        `\.sql$`,
 		"Shell":      `\.(sh|bash|zsh)$`,
 		"Markdown":   `\.md$`,
 	}
@@ -584,12 +561,6 @@ func (tctx *TestContainerTestContext) noLintOutputIsEmitted() error {
 
 	combinedOutput := tctx.commandResult.Stdout + tctx.commandResult.Stderr
 
-	// Special handling for sqlfluff: it shows fixable violations during format, which is expected
-	if strings.Contains(combinedOutput, "sqlfluff format") {
-		// For sqlfluff format, just check that it ran - the violation output is expected
-		return nil
-	}
-
 	// Check that no linting output is present (only formatting) for other tools
 	if strings.Contains(combinedOutput, "error:") ||
 		strings.Contains(combinedOutput, "warning:") ||
@@ -663,78 +634,6 @@ func (tctx *TestContainerTestContext) taidyPoorlyFormattedpyIsRun() error {
 	}
 
 	cmd := "python3 -m taidy poorly_formatted.py"
-	result, err := tctx.currentContainer.ExecuteCommand(cmd)
-	if err != nil {
-		return fmt.Errorf("failed to execute taidy: %w", err)
-	}
-
-	tctx.commandResult = result
-	return nil
-}
-
-func (tctx *TestContainerTestContext) taidyFormatPoorlyFormattedsqlIsRun() error {
-	if tctx.currentContainer == nil {
-		// Set up container based on accumulated constraints
-		environment := tctx.determineEnvironment()
-		if err := tctx.SetupContainer(environment); err != nil {
-			return err
-		}
-
-		// Copy the poorly formatted file
-		if err := tctx.currentContainer.CopyFileIntoContainer("sample_files/poorly_formatted.sql", "poorly_formatted.sql"); err != nil {
-			return fmt.Errorf("failed to copy poorly_formatted.sql: %w", err)
-		}
-	}
-
-	cmd := "python3 -m taidy format poorly_formatted.sql"
-	result, err := tctx.currentContainer.ExecuteCommand(cmd)
-	if err != nil {
-		return fmt.Errorf("failed to execute taidy format: %w", err)
-	}
-
-	tctx.commandResult = result
-	return nil
-}
-
-func (tctx *TestContainerTestContext) taidyLintPoorlyFormattedsqlIsRun() error {
-	if tctx.currentContainer == nil {
-		// Set up container based on accumulated constraints
-		environment := tctx.determineEnvironment()
-		if err := tctx.SetupContainer(environment); err != nil {
-			return err
-		}
-
-		// Copy the poorly formatted file
-		if err := tctx.currentContainer.CopyFileIntoContainer("sample_files/poorly_formatted.sql", "poorly_formatted.sql"); err != nil {
-			return fmt.Errorf("failed to copy poorly_formatted.sql: %w", err)
-		}
-	}
-
-	cmd := "python3 -m taidy lint poorly_formatted.sql"
-	result, err := tctx.currentContainer.ExecuteCommand(cmd)
-	if err != nil {
-		return fmt.Errorf("failed to execute taidy lint: %w", err)
-	}
-
-	tctx.commandResult = result
-	return nil
-}
-
-func (tctx *TestContainerTestContext) taidyPoorlyFormattedsqlIsRun() error {
-	if tctx.currentContainer == nil {
-		// Set up container based on accumulated constraints
-		environment := tctx.determineEnvironment()
-		if err := tctx.SetupContainer(environment); err != nil {
-			return err
-		}
-
-		// Copy the poorly formatted file
-		if err := tctx.currentContainer.CopyFileIntoContainer("sample_files/poorly_formatted.sql", "poorly_formatted.sql"); err != nil {
-			return fmt.Errorf("failed to copy poorly_formatted.sql: %w", err)
-		}
-	}
-
-	cmd := "python3 -m taidy poorly_formatted.sql"
 	result, err := tctx.currentContainer.ExecuteCommand(cmd)
 	if err != nil {
 		return fmt.Errorf("failed to execute taidy: %w", err)
@@ -941,7 +840,6 @@ func (tctx *TestContainerTestContext) InitializeScenario(ctx *godog.ScenarioCont
 	// File creation steps
 	ctx.Step(`^the following Python file exists:$`, tctx.theFollowingPythonFileExists)
 	ctx.Step(`^the Python file "([^"]*)" exists$`, tctx.thePythonFileExists)
-	ctx.Step(`^the SQL file "([^"]*)" exists$`, tctx.theSQLFileExists)
 	ctx.Step(`^the shell file "([^"]*)" exists$`, tctx.theShellFileExists)
 	ctx.Step(`^the markdown file "([^"]*)" exists$`, tctx.theMarkdownFileExists)
 	ctx.Step(`^the following JavaScript file exists:$`, tctx.theFollowingJavaScriptFileExists)
@@ -982,9 +880,6 @@ func (tctx *TestContainerTestContext) InitializeScenario(ctx *godog.ScenarioCont
 	ctx.Step(`^`+"`"+`taidy format poorly_formatted\.py`+"`"+` is run$`, tctx.taidyFormatPoorlyFormattedpyIsRun)
 	ctx.Step(`^`+"`"+`taidy lint poorly_formatted\.py`+"`"+` is run$`, tctx.taidyLintPoorlyFormattedpyIsRun)
 	ctx.Step(`^`+"`"+`taidy poorly_formatted\.py`+"`"+` is run$`, tctx.taidyPoorlyFormattedpyIsRun)
-	ctx.Step(`^`+"`"+`taidy format poorly_formatted\.sql`+"`"+` is run$`, tctx.taidyFormatPoorlyFormattedsqlIsRun)
-	ctx.Step(`^`+"`"+`taidy lint poorly_formatted\.sql`+"`"+` is run$`, tctx.taidyLintPoorlyFormattedsqlIsRun)
-	ctx.Step(`^`+"`"+`taidy poorly_formatted\.sql`+"`"+` is run$`, tctx.taidyPoorlyFormattedsqlIsRun)
 	ctx.Step(`^`+"`"+`taidy format poorly_formatted\.sh`+"`"+` is run$`, tctx.taidyFormatPoorlyFormattedshIsRun)
 	ctx.Step(`^`+"`"+`taidy lint poorly_formatted\.sh`+"`"+` is run$`, tctx.taidyLintPoorlyFormattedshIsRun)
 	ctx.Step(`^`+"`"+`taidy poorly_formatted\.sh`+"`"+` is run$`, tctx.taidyPoorlyFormattedshIsRun)

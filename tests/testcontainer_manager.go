@@ -127,12 +127,6 @@ RUN pip install black
 COPY taidy /app/taidy
 ENV PYTHONPATH=/app
 WORKDIR /tmp`, nil
-	case "python311-sqlfluff":
-		return `FROM python:3.11-slim
-RUN pip install sqlfluff
-COPY taidy /app/taidy
-ENV PYTHONPATH=/app
-WORKDIR /tmp`, nil
 	case "node18":
 		return `FROM node:18-slim
 RUN apt-get update && apt-get install -y python3

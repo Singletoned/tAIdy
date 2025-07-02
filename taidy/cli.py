@@ -52,7 +52,6 @@ SUPPORTED_LANGUAGES_TEXT = """Supported file types and linters:
   Rust:       rustfmt
   Ruby:       rubocop
   PHP:        php-cs-fixer
-  SQL:        sqlfluff → uvx sqlfluff (linting only)
   Shell:      shellcheck → beautysh (linting), shfmt → beautysh (formatting)
   JSON/CSS:   prettier
 
@@ -366,19 +365,6 @@ LINTER_MAP: Dict[str, List[LinterCommand]] = {
             command=lambda files: (
                 "php-cs-fixer",
                 ["fix", "--dry-run", "--quiet"] + files,
-            ),
-        ),
-    ],
-    ".sql": [
-        LinterCommand(
-            available=lambda: is_command_available("sqlfluff"),
-            command=lambda files: ("sqlfluff", ["lint", "--dialect", "ansi"] + files),
-        ),
-        LinterCommand(
-            available=lambda: is_command_available("uvx"),
-            command=lambda files: (
-                "uvx",
-                ["sqlfluff", "lint", "--dialect", "ansi"] + files,
             ),
         ),
     ],
