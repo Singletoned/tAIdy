@@ -139,7 +139,6 @@ func (tctx *TestContainerTestContext) thePythonFileExists(filename string) error
 	return nil
 }
 
-
 func (tctx *TestContainerTestContext) theShellFileExists(filename string) error {
 	// Store the filename for later - don't set up container yet
 	// This allows subsequent steps to determine the correct environment

@@ -45,15 +45,20 @@ DIRECTORY_PROCESSING_TEXT = """Directory Processing:
   __pycache__/ are automatically ignored."""
 
 SUPPORTED_LANGUAGES_TEXT = """Supported file types and linters:
-  Python:     ruff → uvx ruff → black → flake8 → pylint → python -m py_compile
-  JavaScript: eslint → prettier → node --check
-  TypeScript: eslint → tsc --noEmit → prettier
-  Go:         gofmt
-  Rust:       rustfmt
-  Ruby:       rubocop
-  PHP:        php-cs-fixer
-  Shell:      shellcheck → beautysh (linting), shfmt → beautysh (formatting)
-  JSON/CSS:   prettier
+  Python:       ruff → uvx ruff → black → flake8 → pylint → python -m py_compile
+  JavaScript:   eslint → prettier → node --check
+  TypeScript:   eslint → tsc --noEmit → prettier
+  Go:           gofmt
+  Rust:         rustfmt
+  Ruby:         rubocop
+  PHP:          php-cs-fixer
+  Shell:        shellcheck → beautysh (linting), shfmt → beautysh (formatting)
+  JSON/CSS:     prettier
+  YAML:         yamllint → prettier
+  TOML:         taplo check → taplo format
+  Terraform:    terraform validate/tflint → terraform fmt
+  Docker:       hadolint (Dockerfile, .dockerfile)
+  GitHub Actions: actionlint → yamllint → prettier (.github/workflows/*.yml)
 
 Taidy automatically detects which linters are available and uses the best one for each file type."""
 
@@ -193,8 +198,20 @@ def discover_files_in_directory(directory_path: str) -> List[str]:
         if should_ignore_file(file_path, all_ignore_patterns):
             continue
 
-        # Skip if extension not supported
-        if file_path.suffix.lower() not in supported_extensions:
+        # Check if extension is supported
+        ext = file_path.suffix.lower()
+        is_supported = ext in supported_extensions
+
+        # Special case: Dockerfile files without extension
+        if not is_supported and file_path.name.lower() in ["dockerfile"]:
+            is_supported = True
+
+        # Special case: GitHub Actions workflow files
+        if not is_supported and file_path.suffix.lower() in [".yml", ".yaml"]:
+            if ".github/workflows" in str(file_path):
+                is_supported = True
+
+        if not is_supported:
             continue
 
         discovered_files.append(str(file_path))
@@ -398,6 +415,81 @@ LINTER_MAP: Dict[str, List[LinterCommand]] = {
             command=lambda files: ("beautysh", ["--check"] + files),
         ),
     ],
+    ".yaml": [
+        LinterCommand(
+            available=lambda: is_command_available("yamllint"),
+            command=lambda files: ("yamllint", ["--quiet"] + files),
+        ),
+        LinterCommand(
+            available=lambda: is_command_available("prettier"),
+            command=lambda files: (
+                "prettier",
+                ["--check", "--log-level", "error"] + files,
+            ),
+        ),
+    ],
+    ".yml": [
+        LinterCommand(
+            available=lambda: is_command_available("yamllint"),
+            command=lambda files: ("yamllint", ["--quiet"] + files),
+        ),
+        LinterCommand(
+            available=lambda: is_command_available("prettier"),
+            command=lambda files: (
+                "prettier",
+                ["--check", "--log-level", "error"] + files,
+            ),
+        ),
+    ],
+    ".toml": [
+        LinterCommand(
+            available=lambda: is_command_available("taplo"),
+            command=lambda files: ("taplo", ["check", "--quiet"] + files),
+        ),
+    ],
+    ".tf": [
+        LinterCommand(
+            available=lambda: is_command_available("terraform"),
+            command=lambda files: ("terraform", ["validate"] + files),
+        ),
+        LinterCommand(
+            available=lambda: is_command_available("tflint"),
+            command=lambda files: ("tflint", ["--quiet"] + files),
+        ),
+    ],
+    ".tfvars": [
+        LinterCommand(
+            available=lambda: is_command_available("terraform"),
+            command=lambda files: ("terraform", ["validate"] + files),
+        ),
+        LinterCommand(
+            available=lambda: is_command_available("tflint"),
+            command=lambda files: ("tflint", ["--quiet"] + files),
+        ),
+    ],
+    ".dockerfile": [
+        LinterCommand(
+            available=lambda: is_command_available("hadolint"),
+            command=lambda files: ("hadolint", ["--quiet"] + files),
+        ),
+    ],
+    ".github-workflow": [
+        LinterCommand(
+            available=lambda: is_command_available("actionlint"),
+            command=lambda files: ("actionlint", ["-quiet"] + files),
+        ),
+        LinterCommand(
+            available=lambda: is_command_available("yamllint"),
+            command=lambda files: ("yamllint", ["--quiet"] + files),
+        ),
+        LinterCommand(
+            available=lambda: is_command_available("prettier"),
+            command=lambda files: (
+                "prettier",
+                ["--check", "--log-level", "error"] + files,
+            ),
+        ),
+    ],
 }
 
 # FormatterConfig maps file extensions to sequences of formatter commands to try in order
@@ -566,6 +658,54 @@ FORMATTER_MAP: Dict[str, List[LinterCommand]] = {
             command=lambda files: ("beautysh", files),
         ),
     ],
+    ".yaml": [
+        LinterCommand(
+            available=lambda: is_command_available("prettier"),
+            command=lambda files: (
+                "prettier",
+                ["--write", "--log-level", "error"] + files,
+            ),
+            supports_directories=True,
+        ),
+    ],
+    ".yml": [
+        LinterCommand(
+            available=lambda: is_command_available("prettier"),
+            command=lambda files: (
+                "prettier",
+                ["--write", "--log-level", "error"] + files,
+            ),
+            supports_directories=True,
+        ),
+    ],
+    ".toml": [
+        LinterCommand(
+            available=lambda: is_command_available("taplo"),
+            command=lambda files: ("taplo", ["format"] + files),
+        ),
+    ],
+    ".tf": [
+        LinterCommand(
+            available=lambda: is_command_available("terraform"),
+            command=lambda files: ("terraform", ["fmt"] + files),
+        ),
+    ],
+    ".tfvars": [
+        LinterCommand(
+            available=lambda: is_command_available("terraform"),
+            command=lambda files: ("terraform", ["fmt"] + files),
+        ),
+    ],
+    ".github-workflow": [
+        LinterCommand(
+            available=lambda: is_command_available("prettier"),
+            command=lambda files: (
+                "prettier",
+                ["--write", "--log-level", "error"] + files,
+            ),
+            supports_directories=True,
+        ),
+    ],
 }
 
 
@@ -708,21 +848,33 @@ def process_files(files: List[str], mode: Mode) -> int:
     file_groups: Dict[str, List[str]] = {}
 
     for file in expanded_files:
-        ext = Path(file).suffix.lower()
+        file_path = Path(file)
+        ext = file_path.suffix.lower()
+
+        # Handle special cases for file mapping
+        mapped_ext = ext
+
+        # Special case: Dockerfile files without extension
+        if file_path.name.lower() == "dockerfile":
+            mapped_ext = ".dockerfile"
+
+        # Special case: GitHub Actions workflow files
+        if ext in [".yml", ".yaml"] and ".github/workflows" in str(file_path):
+            mapped_ext = ".github-workflow"
 
         # Check if we have configuration for this extension based on mode
         has_config = False
         if mode == Mode.LINT:
-            has_config = ext in LINTER_MAP
+            has_config = mapped_ext in LINTER_MAP
         elif mode == Mode.FORMAT:
-            has_config = ext in FORMATTER_MAP
+            has_config = mapped_ext in FORMATTER_MAP
         elif mode == Mode.BOTH:
-            has_config = ext in LINTER_MAP or ext in FORMATTER_MAP
+            has_config = mapped_ext in LINTER_MAP or mapped_ext in FORMATTER_MAP
 
         if has_config:
-            if ext not in file_groups:
-                file_groups[ext] = []
-            file_groups[ext].append(file)
+            if mapped_ext not in file_groups:
+                file_groups[mapped_ext] = []
+            file_groups[mapped_ext].append(file)
         else:
             logger.warning(f"No linter configured for file {file} (extension: {ext})")
 
