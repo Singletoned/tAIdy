@@ -61,7 +61,6 @@ SUPPORTED_LANGUAGES_TEXT = """Supported file types and linters:
   YAML:         yamllint → prettier
   TOML:         taplo check → taplo format
   Terraform:    terraform validate/tflint → terraform fmt
-  Docker:       hadolint (Dockerfile, .dockerfile)
   GitHub Actions: actionlint → yamllint → prettier (.github/workflows/*.yml)
 
 Taidy automatically detects which linters are available and uses the best one for each file type."""
@@ -205,10 +204,6 @@ def discover_files_in_directory(directory_path: str) -> List[str]:
         # Check if extension is supported
         ext = file_path.suffix.lower()
         is_supported = ext in supported_extensions
-
-        # Special case: Dockerfile files without extension
-        if not is_supported and file_path.name.lower() in ["dockerfile"]:
-            is_supported = True
 
         # Special case: GitHub Actions workflow files
         if not is_supported and file_path.suffix.lower() in [".yml", ".yaml"]:
@@ -469,12 +464,6 @@ LINTER_MAP: Dict[str, List[LinterCommand]] = {
         LinterCommand(
             available=lambda: is_command_available("tflint"),
             command=lambda files: ("tflint", ["--quiet"] + files),
-        ),
-    ],
-    ".dockerfile": [
-        LinterCommand(
-            available=lambda: is_command_available("hadolint"),
-            command=lambda files: ("hadolint", files),
         ),
     ],
     ".github-workflow": [
@@ -858,10 +847,6 @@ def process_files(files: List[str], mode: Mode) -> int:
         # Handle special cases for file mapping
         mapped_ext = ext
 
-        # Special case: Dockerfile files without extension
-        if file_path.name.lower() == "dockerfile":
-            mapped_ext = ".dockerfile"
-
         # Special case: GitHub Actions workflow files
         if ext in [".yml", ".yaml"] and ".github/workflows" in str(file_path):
             mapped_ext = ".github-workflow"
@@ -933,9 +918,7 @@ def analyze_project_files(directory: str = ".") -> Dict[str, Set[str]]:
         ext = file_path.suffix.lower()
 
         # Handle special cases
-        if file_path.name.lower() == "dockerfile":
-            found_extensions.add(".dockerfile")
-        elif ext in [".yml", ".yaml"] and ".github/workflows" in str(file_path):
+        if ext in [".yml", ".yaml"] and ".github/workflows" in str(file_path):
             found_extensions.add(".github-workflow")
         elif ext:
             found_extensions.add(ext)
@@ -1007,7 +990,6 @@ def get_tool_suggestions(extensions: Set[str]) -> Dict[str, List[str]]:
         ".toml": ["taplo"],
         ".tf": ["terraform", "tflint"],
         ".tfvars": ["terraform", "tflint"],
-        ".dockerfile": ["hadolint"],
         ".github-workflow": ["actionlint", "yamllint", "prettier"],
     }
 
@@ -1028,7 +1010,6 @@ def get_tool_suggestions(extensions: Set[str]) -> Dict[str, List[str]]:
         "taplo": "brew install taplo (macOS) or cargo install taplo-cli",
         "terraform": "https://terraform.io/downloads",
         "tflint": "brew install tflint (macOS) or https://github.com/terraform-linters/tflint",
-        "hadolint": "brew install hadolint (macOS) or https://github.com/hadolint/hadolint",
         "actionlint": (
             "brew install actionlint (macOS) or go install github.com/rhymond/actionlint@latest"
         ),
@@ -1151,7 +1132,8 @@ def docker_run(args: List[str]) -> int:
     print("🐳 Running taidy in Docker container...")
     args_str = " ".join(args)
     print(
-        f"Command: docker run --rm -v {current_dir}:/workspace -w /workspace {docker_image} {args_str}"
+        f"Command: docker run --rm -v {current_dir}:/workspace "
+        f"-w /workspace {docker_image} {args_str}"
     )
 
     # Execute the Docker command
