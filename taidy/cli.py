@@ -392,7 +392,7 @@ LINTER_MAP: Dict[str, List[LinterCommand]] = {
     ".sh": [
         LinterCommand(
             available=lambda: is_command_available("shellcheck"),
-            command=lambda files: ("shellcheck", ["--quiet"] + files),
+            command=lambda files: ("shellcheck", files),
         ),
         LinterCommand(
             available=lambda: is_command_available("beautysh"),
@@ -402,7 +402,7 @@ LINTER_MAP: Dict[str, List[LinterCommand]] = {
     ".bash": [
         LinterCommand(
             available=lambda: is_command_available("shellcheck"),
-            command=lambda files: ("shellcheck", ["--quiet"] + files),
+            command=lambda files: ("shellcheck", files),
         ),
         LinterCommand(
             available=lambda: is_command_available("beautysh"),
@@ -412,7 +412,7 @@ LINTER_MAP: Dict[str, List[LinterCommand]] = {
     ".zsh": [
         LinterCommand(
             available=lambda: is_command_available("shellcheck"),
-            command=lambda files: ("shellcheck", ["--quiet"] + files),
+            command=lambda files: ("shellcheck", files),
         ),
         LinterCommand(
             available=lambda: is_command_available("beautysh"),
