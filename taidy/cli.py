@@ -729,6 +729,47 @@ def show_version() -> None:
 output_lock = threading.Lock()
 
 
+def execute_batched_command(
+    cmd_signature: Tuple[str, Tuple[str, ...]], file_list: List[str]
+) -> int:
+    """Execute a batched command with deduplicated file list"""
+    cmd, base_args = cmd_signature
+
+    # Remove duplicates from file list while preserving order
+    unique_files = []
+    seen = set()
+    for file in file_list:
+        if file not in seen:
+            seen.add(file)
+            unique_files.append(file)
+
+    # Build final command
+    args = list(base_args) + unique_files
+
+    with output_lock:
+        logger.info(f"Running: {cmd} {' '.join(args)}")
+
+    try:
+        result = subprocess.run([cmd] + args, capture_output=True, text=True)
+
+        # Print output atomically to avoid mixing
+        with output_lock:
+            if result.stdout:
+                print(result.stdout, end="", flush=True)
+            if result.stderr:
+                print(result.stderr, end="", file=sys.stderr, flush=True)
+
+        return result.returncode
+    except FileNotFoundError:
+        with output_lock:
+            logger.error(f"Error executing {cmd}: command not found")
+        return 127  # Standard exit code for command not found
+    except Exception as e:
+        with output_lock:
+            logger.error(f"Error executing {cmd}: {e}")
+        return 1  # General error
+
+
 def execute_linters(commands: List[LinterCommand], file_list: List[str]) -> int:
     """Try each command in order until one is available"""
     for linter_cmd in commands:
@@ -872,34 +913,82 @@ def process_files(files: List[str], mode: Mode) -> int:
         logger.info("No supported files provided, no files were linted")
         return 0
 
-    # Execute linters/formatters for each file extension in parallel
+    # Batch commands by their command signature to avoid duplicate runs
+    command_batches: Dict[Tuple[str, Tuple[str, ...]], List[str]] = {}
+
+    # Collect all commands that would be run
+    for ext, file_list in file_groups.items():
+        # Process linting commands
+        if mode in [Mode.LINT, Mode.BOTH] and ext in LINTER_MAP:
+            for linter_cmd in LINTER_MAP[ext]:
+                if linter_cmd.available():
+                    # Use directory if supported and no custom ignores
+                    inputs = file_list
+                    if (
+                        input_directories
+                        and not has_custom_ignores
+                        and linter_cmd.supports_directories
+                    ):
+                        inputs = input_directories
+
+                    cmd, args = linter_cmd.command(inputs)
+                    # Create a signature excluding the file arguments
+                    base_args = [arg for arg in args if arg not in inputs]
+                    cmd_signature = (cmd, tuple(base_args))
+
+                    if cmd_signature not in command_batches:
+                        command_batches[cmd_signature] = []
+                    command_batches[cmd_signature].extend(inputs)
+                    break  # Only use the first available command
+
+        # Process formatting commands
+        if mode in [Mode.FORMAT, Mode.BOTH] and ext in FORMATTER_MAP:
+            for formatter_cmd in FORMATTER_MAP[ext]:
+                if formatter_cmd.available():
+                    # Use directory if supported and no custom ignores
+                    inputs = file_list
+                    if (
+                        input_directories
+                        and not has_custom_ignores
+                        and formatter_cmd.supports_directories
+                    ):
+                        inputs = input_directories
+
+                    cmd, args = formatter_cmd.command(inputs)
+                    # Create a signature excluding the file arguments
+                    base_args = [arg for arg in args if arg not in inputs]
+                    cmd_signature = (cmd, tuple(base_args))
+
+                    if cmd_signature not in command_batches:
+                        command_batches[cmd_signature] = []
+                    command_batches[cmd_signature].extend(inputs)
+                    break  # Only use the first available command
+
+    # Execute batched commands
     exit_code = 0
 
     # Use ThreadPoolExecutor for parallel processing
-    with ThreadPoolExecutor(max_workers=min(len(file_groups), os.cpu_count() or 1)) as executor:
-        # Submit all file groups for processing
-        future_to_ext = {
+    with ThreadPoolExecutor(max_workers=min(len(command_batches), os.cpu_count() or 1)) as executor:
+        # Submit all batched commands for processing
+        future_to_cmd = {
             executor.submit(
-                process_file_group,
-                ext,
+                execute_batched_command,
+                cmd_signature,
                 file_list,
-                mode,
-                input_directories or None,
-                has_custom_ignores,
-            ): ext
-            for ext, file_list in file_groups.items()
+            ): cmd_signature
+            for cmd_signature, file_list in command_batches.items()
         }
 
         # Collect results as they complete
-        for future in as_completed(future_to_ext):
-            ext = future_to_ext[future]
+        for future in as_completed(future_to_cmd):
+            cmd_signature = future_to_cmd[future]
             try:
                 result = future.result()
                 if result != 0:
                     exit_code = result
             except Exception as e:
                 with output_lock:
-                    logger.error(f"Error processing {ext} files: {e}")
+                    logger.error(f"Error executing {cmd_signature[0]}: {e}")
                 exit_code = 1
 
     return exit_code
