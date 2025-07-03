@@ -9,7 +9,7 @@ dist:
 
 # Run BDD tests
 test *features:
-    cd tests && go run . {{features}}
+    cd tests && go run . {{ features }}
 
 # Run type checking with mypy
 typecheck:
