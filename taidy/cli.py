@@ -61,6 +61,7 @@ SUPPORTED_LANGUAGES_TEXT = """Supported file types and linters:
   YAML:         yamllint → prettier
   TOML:         taplo check → taplo format
   Terraform:    terraform validate/tflint → terraform fmt
+  Justfile:     just --fmt --check → just --fmt
   GitHub Actions: actionlint → yamllint → prettier (.github/workflows/*.yml)
 
 Taidy automatically detects which linters are available and uses the best one for each file type."""
@@ -204,6 +205,10 @@ def discover_files_in_directory(directory_path: str) -> List[str]:
         # Check if extension is supported
         ext = file_path.suffix.lower()
         is_supported = ext in supported_extensions
+
+        # Special case: Justfile files
+        if not is_supported and file_path.name.lower() in ["justfile", "justfile.just"]:
+            is_supported = True
 
         # Special case: GitHub Actions workflow files
         if not is_supported and file_path.suffix.lower() in [".yml", ".yaml"]:
@@ -699,6 +704,12 @@ FORMATTER_MAP: Dict[str, List[LinterCommand]] = {
             supports_directories=True,
         ),
     ],
+    "justfile": [
+        LinterCommand(
+            available=lambda: is_command_available("just"),
+            command=lambda files: ("just", ["--fmt", "--unstable"]),
+        ),
+    ],
 }
 
 
@@ -743,8 +754,13 @@ def execute_batched_command(
             seen.add(file)
             unique_files.append(file)
 
-    # Build final command
-    args = list(base_args) + unique_files
+    # Special handling for commands that don't take file arguments (like just --fmt)
+    if cmd == "just" and "--fmt" in base_args:
+        # just --fmt operates on the justfile in the current directory
+        args = list(base_args)
+    else:
+        # Build final command with files
+        args = list(base_args) + unique_files
 
     with output_lock:
         logger.info(f"Running: {cmd} {' '.join(args)}")
@@ -888,6 +904,10 @@ def process_files(files: List[str], mode: Mode) -> int:
         # Handle special cases for file mapping
         mapped_ext = ext
 
+        # Special case: Justfile files
+        if file_path.name.lower() in ["justfile", "justfile.just"]:
+            mapped_ext = "justfile"
+
         # Special case: GitHub Actions workflow files
         if ext in [".yml", ".yaml"] and ".github/workflows" in str(file_path):
             mapped_ext = ".github-workflow"
@@ -1007,7 +1027,9 @@ def analyze_project_files(directory: str = ".") -> Dict[str, Set[str]]:
         ext = file_path.suffix.lower()
 
         # Handle special cases
-        if ext in [".yml", ".yaml"] and ".github/workflows" in str(file_path):
+        if file_path.name.lower() in ["justfile", "justfile.just"]:
+            found_extensions.add("justfile")
+        elif ext in [".yml", ".yaml"] and ".github/workflows" in str(file_path):
             found_extensions.add(".github-workflow")
         elif ext:
             found_extensions.add(ext)
@@ -1080,6 +1102,7 @@ def get_tool_suggestions(extensions: Set[str]) -> Dict[str, List[str]]:
         ".tf": ["terraform", "tflint"],
         ".tfvars": ["terraform", "tflint"],
         ".github-workflow": ["actionlint", "yamllint", "prettier"],
+        "justfile": ["just"],
     }
 
     # Installation commands for different tools
@@ -1102,6 +1125,7 @@ def get_tool_suggestions(extensions: Set[str]) -> Dict[str, List[str]]:
         "actionlint": (
             "brew install actionlint (macOS) or go install github.com/rhymond/actionlint@latest"
         ),
+        "just": "brew install just (macOS) or cargo install just",
     }
 
     for ext in extensions:
