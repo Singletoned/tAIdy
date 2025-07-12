@@ -599,6 +599,24 @@ FORMATTER_MAP: Dict[str, List[LinterCommand]] = {
             supports_directories=True,
         ),
     ],
+    ".pug": [
+        LinterCommand(
+            available=lambda: is_command_available("bunx"),
+            command=lambda files: (
+                "bunx",
+                ["prettier", "--write", "--plugin=@prettier/plugin-pug"] + files,
+            ),
+            supports_directories=True,
+        ),
+        LinterCommand(
+            available=lambda: is_command_available("npx"),
+            command=lambda files: (
+                "npx",
+                ["prettier", "--write", "--plugin=@prettier/plugin-pug"] + files,
+            ),
+            supports_directories=True,
+        ),
+    ],
     ".go": [
         LinterCommand(
             available=lambda: is_command_available("gofmt"),
