@@ -63,6 +63,7 @@ SUPPORTED_LANGUAGES_TEXT = """Supported file types and linters:
   Terraform:    terraform validate/tflint → terraform fmt
   Justfile:     just --fmt --check → just --fmt
   GitHub Actions: actionlint → yamllint → prettier (.github/workflows/*.yml)
+  Security:     trufflehog (scans for secrets across all file types)
 
 Taidy automatically detects which linters are available and uses the best one for each file type."""
 
@@ -117,6 +118,51 @@ def is_command_available(cmd: str) -> bool:
     if cmd not in _command_availability_cache:
         _command_availability_cache[cmd] = shutil.which(cmd) is not None
     return _command_availability_cache[cmd]
+
+
+def is_git_repository(directory: Path) -> bool:
+    """Check if a directory is inside a git repository"""
+    current = directory.resolve()
+    while current != current.parent:
+        if (current / ".git").exists():
+            return True
+        current = current.parent
+    return False
+
+
+def find_git_root(directory: Path) -> Optional[Path]:
+    """Find the root of the git repository containing the directory"""
+    current = directory.resolve()
+    while current != current.parent:
+        if (current / ".git").exists():
+            return current
+        current = current.parent
+    return None
+
+
+def get_git_ignored_files(git_root: Path) -> Set[Path]:
+    """Get set of files ignored by git using git status --ignored"""
+    ignored_files = set()
+
+    try:
+        result = subprocess.run(
+            ["git", "status", "--ignored", "--porcelain=v1"],
+            cwd=git_root,
+            capture_output=True,
+            text=True,
+            timeout=10,
+        )
+
+        if result.returncode == 0:
+            for line in result.stdout.splitlines():
+                if line.startswith("!!"):
+                    # Remove the '!! ' prefix and get the file path
+                    file_path = line[3:]
+                    ignored_files.add(git_root / file_path)
+    except Exception as e:
+        logger.debug(f"Failed to get git ignored files: {e}")
+
+    return ignored_files
 
 
 def load_config(start_path: str = ".") -> Dict[str, Any]:
@@ -193,13 +239,24 @@ def discover_files_in_directory(directory_path: str) -> List[str]:
     discovered_files = []
     directory = Path(directory_path)
 
+    # Check if directory is in a git repository and get ignored files
+    git_ignored_files = set()
+    if is_git_repository(directory):
+        git_root = find_git_root(directory)
+        if git_root:
+            git_ignored_files = get_git_ignored_files(git_root)
+
     for file_path in directory.rglob("*"):
         # Skip if it's not a file
         if not file_path.is_file():
             continue
 
-        # Skip if file should be ignored
+        # Skip if file should be ignored by taidy patterns
         if should_ignore_file(file_path, all_ignore_patterns):
+            continue
+
+        # Skip if file should be ignored by git (only if we're in a git repo)
+        if file_path.resolve() in git_ignored_files:
             continue
 
         # Check if extension is supported
@@ -213,6 +270,39 @@ def discover_files_in_directory(directory_path: str) -> List[str]:
         # Special case: GitHub Actions workflow files
         if not is_supported and file_path.suffix.lower() in [".yml", ".yaml"]:
             if ".github/workflows" in str(file_path):
+                is_supported = True
+
+        # Special case: Security scanning - include all files if trufflehog is available
+        if not is_supported and is_command_available("trufflehog"):
+            # Include most common file types for security scanning
+            security_extensions = {
+                ".py",
+                ".js",
+                ".jsx",
+                ".ts",
+                ".tsx",
+                ".go",
+                ".rs",
+                ".rb",
+                ".php",
+                ".sh",
+                ".bash",
+                ".zsh",
+                ".yaml",
+                ".yml",
+                ".json",
+                ".toml",
+                ".tf",
+                ".tfvars",
+                ".env",
+                ".txt",
+                ".md",
+                ".sql",
+                ".xml",
+                ".html",
+                ".css",
+            }
+            if ext in security_extensions or file_path.name.startswith(".env"):
                 is_supported = True
 
         if not is_supported:
@@ -486,6 +576,13 @@ LINTER_MAP: Dict[str, List[LinterCommand]] = {
                 "prettier",
                 ["--check", "--log-level", "error"] + files,
             ),
+        ),
+    ],
+    ".security": [
+        LinterCommand(
+            available=lambda: is_command_available("trufflehog"),
+            command=lambda files: ("trufflehog", ["filesystem", "--no-update"] + files),
+            supports_directories=True,
         ),
     ],
 }
@@ -946,6 +1043,40 @@ def process_files(files: List[str], mode: Mode) -> int:
         else:
             logger.warning(f"No linter configured for file {file} (extension: {ext})")
 
+        # Add to security scanning group if trufflehog is available and we're linting
+        if mode in [Mode.LINT, Mode.BOTH] and is_command_available("trufflehog"):
+            security_extensions = {
+                ".py",
+                ".js",
+                ".jsx",
+                ".ts",
+                ".tsx",
+                ".go",
+                ".rs",
+                ".rb",
+                ".php",
+                ".sh",
+                ".bash",
+                ".zsh",
+                ".yaml",
+                ".yml",
+                ".json",
+                ".toml",
+                ".tf",
+                ".tfvars",
+                ".env",
+                ".txt",
+                ".md",
+                ".sql",
+                ".xml",
+                ".html",
+                ".css",
+            }
+            if ext in security_extensions or file_path.name.startswith(".env"):
+                if ".security" not in file_groups:
+                    file_groups[".security"] = []
+                file_groups[".security"].append(file)
+
     # Check if any files will be processed
     if not file_groups:
         logger.info("No supported files provided, no files were linted")
@@ -1121,6 +1252,7 @@ def get_tool_suggestions(extensions: Set[str]) -> Dict[str, List[str]]:
         ".tfvars": ["terraform", "tflint"],
         ".github-workflow": ["actionlint", "yamllint", "prettier"],
         "justfile": ["just"],
+        ".security": ["trufflehog"],
     }
 
     # Installation commands for different tools
@@ -1144,6 +1276,10 @@ def get_tool_suggestions(extensions: Set[str]) -> Dict[str, List[str]]:
             "brew install actionlint (macOS) or go install github.com/rhymond/actionlint@latest"
         ),
         "just": "brew install just (macOS) or cargo install just",
+        "trufflehog": (
+            "brew install trufflehog (macOS) or "
+            "go install github.com/trufflesecurity/trufflehog/v3@latest"
+        ),
     }
 
     for ext in extensions:
