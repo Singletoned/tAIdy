@@ -61,8 +61,12 @@ func (tctx *TestContainerTestContext) determineEnvironment() string {
 	hasShellcheck := contains(tctx.requiredLinters, "shellcheck")
 	hasShfmt := contains(tctx.requiredLinters, "shfmt")
 	hasBeautysh := contains(tctx.requiredLinters, "beautysh")
+	hasTrufflehog := contains(tctx.requiredLinters, "trufflehog")
 
 	// Python environment selection
+	if hasTrufflehog {
+		return "python311-trufflehog"
+	}
 	if hasRuff && !forbidsRuff {
 		return "python311"
 	}
@@ -209,7 +213,7 @@ func (tctx *TestContainerTestContext) linterIsInstalled(linter string) error {
 
 		// Copy any test files that were registered earlier
 		for _, filename := range tctx.testFiles {
-			if strings.HasSuffix(filename, ".py") && (linter == "ruff" || linter == "black" || linter == "uv") {
+			if strings.HasSuffix(filename, ".py") && (linter == "ruff" || linter == "black" || linter == "uv" || linter == "trufflehog") {
 				sourceFile := fmt.Sprintf("sample_files/%s", filename)
 				if err := tctx.currentContainer.CopyFileIntoContainer(sourceFile, filename); err != nil {
 					return fmt.Errorf("failed to copy Python file %s: %w", filename, err)
@@ -866,6 +870,90 @@ func executeHostCommandWriteFile(filename, content string) error {
 	return cmd.Run()
 }
 
+// Security scanning step definitions
+func (tctx *TestContainerTestContext) securityScanningOutputIsEmitted() error {
+	if tctx.commandResult == nil {
+		return fmt.Errorf("no command has been executed")
+	}
+
+	// Check if trufflehog output is present
+	output := tctx.commandResult.Stdout + tctx.commandResult.Stderr
+	if !strings.Contains(output, "TruffleHog") && !strings.Contains(output, "trufflehog") {
+		return fmt.Errorf("expected security scanning output from trufflehog, but found none in: %s", output)
+	}
+
+	return nil
+}
+
+func (tctx *TestContainerTestContext) secretsAreDetectedInTheOutput() error {
+	if tctx.commandResult == nil {
+		return fmt.Errorf("no command has been executed")
+	}
+
+	// Check if secrets were detected (exit code 183 indicates findings from trufflehog)
+	if tctx.commandResult.ExitCode != 183 {
+		return fmt.Errorf("expected secrets to be detected (exit code 183), but got exit code %d", tctx.commandResult.ExitCode)
+	}
+
+	return nil
+}
+
+func (tctx *TestContainerTestContext) noSecurityScanningOutputIsEmitted() error {
+	if tctx.commandResult == nil {
+		return fmt.Errorf("no command has been executed")
+	}
+
+	// Check that trufflehog output is NOT present
+	output := tctx.commandResult.Stdout + tctx.commandResult.Stderr
+	if strings.Contains(output, "TruffleHog") || strings.Contains(output, "trufflehog") {
+		return fmt.Errorf("expected no security scanning output, but found trufflehog output in: %s", output)
+	}
+
+	return nil
+}
+
+func (tctx *TestContainerTestContext) theCommandCompletesSuccessfully() error {
+	if tctx.commandResult == nil {
+		return fmt.Errorf("no command has been executed")
+	}
+
+	if tctx.commandResult.ExitCode != 0 {
+		return fmt.Errorf("expected command to complete successfully (exit code 0), but got exit code %d", tctx.commandResult.ExitCode)
+	}
+
+	return nil
+}
+
+func (tctx *TestContainerTestContext) taidyLintWithSecretPyIsRun() error {
+	if tctx.currentContainer == nil {
+		return fmt.Errorf("no container available for testing")
+	}
+
+	cmd := "python3 -m taidy lint with_secret.py"
+	result, err := tctx.currentContainer.ExecuteCommand(cmd)
+	if err != nil {
+		return fmt.Errorf("failed to execute taidy lint with_secret.py: %w", err)
+	}
+
+	tctx.commandResult = result
+	return nil
+}
+
+func (tctx *TestContainerTestContext) taidyLintDotIsRunInTheSampleFilesDirectory() error {
+	if tctx.currentContainer == nil {
+		return fmt.Errorf("no container available for testing")
+	}
+
+	cmd := "python3 -m taidy lint ."
+	result, err := tctx.currentContainer.ExecuteCommand(cmd)
+	if err != nil {
+		return fmt.Errorf("failed to execute taidy lint .: %w", err)
+	}
+
+	tctx.commandResult = result
+	return nil
+}
+
 // InitializeScenario initializes the test context for each scenario using testcontainers
 // Docker-related step definitions
 func (tctx *TestContainerTestContext) dockerIsAvailable() error {
@@ -1000,6 +1088,14 @@ func (tctx *TestContainerTestContext) InitializeScenario(ctx *godog.ScenarioCont
 	ctx.Step(`^`+"`"+`taidy format poorly_formatted\.md`+"`"+` is run$`, tctx.taidyFormatPoorlyFormattedmdIsRun)
 	ctx.Step(`^`+"`"+`taidy lint poorly_formatted\.md`+"`"+` is run$`, tctx.taidyLintPoorlyFormattedmdIsRun)
 	ctx.Step(`^`+"`"+`taidy poorly_formatted\.md`+"`"+` is run$`, tctx.taidyPoorlyFormattedmdIsRun)
+
+	// Security scanning steps
+	ctx.Step(`^`+"`"+`taidy lint with_secret\.py`+"`"+` is run$`, tctx.taidyLintWithSecretPyIsRun)
+	ctx.Step(`^`+"`"+`taidy lint \.`+"`"+` is run in the sample_files directory$`, tctx.taidyLintDotIsRunInTheSampleFilesDirectory)
+	ctx.Step(`^security scanning output is emitted$`, tctx.securityScanningOutputIsEmitted)
+	ctx.Step(`^secrets are detected in the output$`, tctx.secretsAreDetectedInTheOutput)
+	ctx.Step(`^no security scanning output is emitted$`, tctx.noSecurityScanningOutputIsEmitted)
+	ctx.Step(`^the command completes successfully$`, tctx.theCommandCompletesSuccessfully)
 
 	// Docker-related steps
 	ctx.Step(`^Docker is available$`, tctx.dockerIsAvailable)

@@ -581,7 +581,7 @@ LINTER_MAP: Dict[str, List[LinterCommand]] = {
     ".security": [
         LinterCommand(
             available=lambda: is_command_available("trufflehog"),
-            command=lambda files: ("trufflehog", ["filesystem", "--no-update"] + files),
+            command=lambda files: ("trufflehog", ["filesystem", "--no-update", "--fail", "--log-level=-1"] + files),
             supports_directories=True,
         ),
     ],

@@ -156,6 +156,17 @@ RUN apk add --no-cache python3
 COPY taidy /app/taidy
 ENV PYTHONPATH=/app
 WORKDIR /tmp`, nil
+	case "python311-trufflehog":
+		return `FROM python:3.11-slim
+RUN pip install ruff
+RUN apt-get update && apt-get install -y wget && \
+    wget -O /tmp/trufflehog.tar.gz https://github.com/trufflesecurity/trufflehog/releases/download/v3.89.2/trufflehog_3.89.2_linux_amd64.tar.gz && \
+    tar -xzf /tmp/trufflehog.tar.gz -C /usr/local/bin/ && \
+    chmod +x /usr/local/bin/trufflehog && \
+    rm /tmp/trufflehog.tar.gz
+COPY taidy /app/taidy
+ENV PYTHONPATH=/app
+WORKDIR /tmp`, nil
 	default:
 		return "", fmt.Errorf("unknown environment: %s", environment)
 	}
