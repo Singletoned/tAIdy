@@ -205,6 +205,18 @@ def should_ignore_file(file_path: Path, ignore_patterns: List[str]) -> bool:
     return False
 
 
+def _get_trufflehog_command(files: List[str]) -> Tuple[str, List[str]]:
+    """Get the appropriate trufflehog command based on git repository status."""
+    # Check if we're in a git repository
+    current_dir = Path.cwd()
+    if is_git_repository(current_dir):
+        # Use git mode with max-depth=1 to scan current state while respecting gitignore
+        return ("trufflehog", ["git", "--max-depth=1", "--no-update", "--fail", "--log-level=-1", "."])
+    else:
+        # Use filesystem mode for non-git directories
+        return ("trufflehog", ["filesystem", "--no-update", "--fail", "--log-level=-1"] + files)
+
+
 def discover_files_in_directory(directory_path: str) -> List[str]:
     """Discover all supported files in a directory recursively"""
     supported_extensions: Set[str] = set()
@@ -581,7 +593,7 @@ LINTER_MAP: Dict[str, List[LinterCommand]] = {
     ".security": [
         LinterCommand(
             available=lambda: is_command_available("trufflehog"),
-            command=lambda files: ("trufflehog", ["filesystem", "--no-update", "--fail", "--log-level=-1"] + files),
+            command=lambda files: _get_trufflehog_command(files),
             supports_directories=True,
         ),
     ],
@@ -869,9 +881,12 @@ def execute_batched_command(
             seen.add(file)
             unique_files.append(file)
 
-    # Special handling for commands that don't take file arguments (like just --fmt)
+    # Special handling for commands that don't take file arguments
     if cmd == "just" and "--fmt" in base_args:
         # just --fmt operates on the justfile in the current directory
+        args = list(base_args)
+    elif cmd == "trufflehog" and "git" in base_args:
+        # trufflehog git mode scans the repository, doesn't take file arguments
         args = list(base_args)
     else:
         # Build final command with files
@@ -1043,8 +1058,11 @@ def process_files(files: List[str], mode: Mode) -> int:
         else:
             logger.warning(f"No linter configured for file {file} (extension: {ext})")
 
-        # Add to security scanning group if trufflehog is available and we're linting
-        if mode in [Mode.LINT, Mode.BOTH] and is_command_available("trufflehog"):
+        # Add to security scanning group if trufflehog is available, we're linting,
+        # and we're scanning a single directory (not individual files)
+        if (mode in [Mode.LINT, Mode.BOTH] and 
+            is_command_available("trufflehog") and
+            len(input_directories) == 1 and len(files) == 1):
             security_extensions = {
                 ".py",
                 ".js",
