@@ -211,7 +211,12 @@ def _get_trufflehog_command(files: List[str]) -> Tuple[str, List[str]]:
     current_dir = Path.cwd()
     if is_git_repository(current_dir):
         # Use git mode with max-depth=1 to scan current state while respecting gitignore
-        return ("trufflehog", ["git", "--max-depth=1", "--no-update", "--fail", "--log-level=-1", "."])
+        # Use file:// URI for local git repository
+        git_uri = f"file://{current_dir.absolute()}"
+        return (
+            "trufflehog",
+            ["git", "--max-depth=1", "--no-update", "--fail", "--log-level=-1", git_uri],
+        )
     else:
         # Use filesystem mode for non-git directories
         return ("trufflehog", ["filesystem", "--no-update", "--fail", "--log-level=-1"] + files)
@@ -1060,9 +1065,12 @@ def process_files(files: List[str], mode: Mode) -> int:
 
         # Add to security scanning group if trufflehog is available, we're linting,
         # and we're scanning a single directory (not individual files)
-        if (mode in [Mode.LINT, Mode.BOTH] and 
-            is_command_available("trufflehog") and
-            len(input_directories) == 1 and len(files) == 1):
+        if (
+            mode in [Mode.LINT, Mode.BOTH]
+            and is_command_available("trufflehog")
+            and len(input_directories) == 1
+            and len(files) == 1
+        ):
             security_extensions = {
                 ".py",
                 ".js",
