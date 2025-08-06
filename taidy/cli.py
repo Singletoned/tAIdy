@@ -23,7 +23,7 @@ BUILD_DATE = "unknown"
 
 # Help text constants
 USAGE_TEXT = """
-Usage: taidy [command] <files_or_directories...>
+Usage: taidy [flags] [command] <files_or_directories...>
 
 Commands:
   lint     Lint files only (no formatting)
@@ -42,7 +42,9 @@ Examples:
 
 Flags:
   -h, --help     Show this help message
-  -v, --version  Show version information"""
+  --version      Show version information
+  --verbose      Show verbose output (info level)
+  -q, --quiet    Suppress warnings (errors only)"""
 
 DIRECTORY_PROCESSING_TEXT = """Directory Processing:
   When a directory is specified, taidy recursively finds all supported files
@@ -84,7 +86,7 @@ CONFIGURATION_TEXT = """Configuration:
 logger = logging.getLogger(__name__)
 
 
-def setup_logging() -> None:
+def setup_logging(verbose: bool = False, quiet: bool = False) -> None:
     """Setup logging to stdout with appropriate format"""
     # Only setup if not already configured
     if not logger.handlers:
@@ -92,7 +94,14 @@ def setup_logging() -> None:
         formatter = logging.Formatter("%(levelname)s: %(message)s")
         handler.setFormatter(formatter)
         logger.addHandler(handler)
-        logger.setLevel(logging.INFO)
+
+        # Set log level based on verbosity flags
+        if quiet:
+            logger.setLevel(logging.ERROR)
+        elif verbose:
+            logger.setLevel(logging.INFO)
+        else:
+            logger.setLevel(logging.WARNING)
 
 
 class Mode(Enum):
@@ -1124,7 +1133,12 @@ def execute_batched_command(
         logger.info(f"Running: {cmd} {' '.join(args)}")
 
     try:
-        result = subprocess.run([cmd] + args, capture_output=True, text=True)
+        # Set environment for taplo to suppress info messages
+        env = os.environ.copy()
+        if cmd == "taplo":
+            env["RUST_LOG"] = "warn"
+
+        result = subprocess.run([cmd] + args, capture_output=True, text=True, env=env)
 
         # Print output atomically to avoid mixing
         with output_lock:
@@ -1154,7 +1168,12 @@ def execute_linters(commands: List[LinterCommand], file_list: List[str]) -> int:
                 logger.info(f"Running: {cmd} {' '.join(args)}")
 
             try:
-                result = subprocess.run([cmd] + args, capture_output=True, text=True)
+                # Set environment for taplo to suppress info messages
+                env = os.environ.copy()
+                if cmd == "taplo":
+                    env["RUST_LOG"] = "warn"
+
+                result = subprocess.run([cmd] + args, capture_output=True, text=True, env=env)
 
                 # Print output atomically to avoid mixing
                 with output_lock:
@@ -1836,50 +1855,66 @@ def docker_run(args: List[str]) -> int:
 
 def main() -> None:
     """Main entry point"""
-    setup_logging()
+    # Parse flags first
+    args = sys.argv[1:]
+    verbose = False
+    quiet = False
 
-    if len(sys.argv) < 2:
+    # Process flags and remove them from args
+    filtered_args = []
+    i = 0
+    while i < len(args):
+        arg = args[i]
+        if arg == "--verbose":
+            verbose = True
+        elif arg in ["-q", "--quiet"]:
+            quiet = True
+        elif arg in ["-h", "--help"]:
+            show_help()
+            sys.exit(0)
+        elif arg == "--version":
+            show_version()
+            sys.exit(0)
+        else:
+            filtered_args.append(arg)
+        i += 1
+
+    # Setup logging with parsed flags
+    setup_logging(verbose=verbose, quiet=quiet)
+
+    if len(filtered_args) < 1:
         show_usage()
         sys.exit(1)
-
-    # Handle version and help flags
-    arg = sys.argv[1]
-    if arg in ["-v", "--version"]:
-        show_version()
-        sys.exit(0)
-    elif arg in ["-h", "--help"]:
-        show_help()
-        sys.exit(0)
 
     # Parse command and files
     mode = Mode.BOTH
     files = []
 
-    if sys.argv[1] == "lint":
+    if filtered_args[0] == "lint":
         mode = Mode.LINT
-        if len(sys.argv) < 3:
+        if len(filtered_args) < 2:
             show_usage()
             sys.exit(1)
-        files = sys.argv[2:]
-    elif sys.argv[1] == "format":
+        files = filtered_args[1:]
+    elif filtered_args[0] == "format":
         mode = Mode.FORMAT
-        if len(sys.argv) < 3:
+        if len(filtered_args) < 2:
             show_usage()
             sys.exit(1)
-        files = sys.argv[2:]
-    elif sys.argv[1] == "suggest":
+        files = filtered_args[1:]
+    elif filtered_args[0] == "suggest":
         exit_code = suggest_tools()
         sys.exit(exit_code)
-    elif sys.argv[1] == "docker":
-        if len(sys.argv) < 3:
+    elif filtered_args[0] == "docker":
+        if len(filtered_args) < 2:
             show_usage()
             sys.exit(1)
-        exit_code = docker_run(sys.argv[2:])
+        exit_code = docker_run(filtered_args[1:])
         sys.exit(exit_code)
     else:
         # No subcommand, treat first arg as file
         mode = Mode.BOTH
-        files = sys.argv[1:]
+        files = filtered_args
 
     exit_code = process_files(files, mode)
     sys.exit(exit_code)
