@@ -5,6 +5,7 @@ import fnmatch
 import json
 import logging
 import os
+import platform
 import shutil
 import subprocess
 import sys
@@ -118,6 +119,228 @@ def is_command_available(cmd: str) -> bool:
     if cmd not in _command_availability_cache:
         _command_availability_cache[cmd] = shutil.which(cmd) is not None
     return _command_availability_cache[cmd]
+
+
+def detect_linux_distribution() -> Optional[Dict[str, str]]:
+    """Detect Linux distribution using /etc/os-release file"""
+    try:
+        os_release_path = Path("/etc/os-release")
+        if not os_release_path.exists():
+            return None
+
+        with open(os_release_path, "r") as f:
+            content = f.read()
+
+        # Parse os-release file
+        info = {}
+        for line in content.splitlines():
+            if "=" in line:
+                key, value = line.split("=", 1)
+                # Remove quotes from value
+                value = value.strip('"').strip("'")
+                info[key] = value
+
+        # Map common distribution identifiers
+        distribution_map = {
+            "ubuntu": "ubuntu",
+            "debian": "debian",
+            "fedora": "fedora",
+            "rhel": "rhel",
+            "centos": "centos",
+            "arch": "arch",
+            "manjaro": "arch",  # Manjaro is Arch-based
+            "opensuse": "opensuse",
+            "suse": "opensuse",
+            "alpine": "alpine",
+        }
+
+        # Try to identify distribution
+        distribution = None
+        if "ID" in info:
+            distribution = distribution_map.get(info["ID"].lower())
+
+        if not distribution and "ID_LIKE" in info:
+            # Check ID_LIKE for derivative distributions
+            for id_like in info["ID_LIKE"].split():
+                distribution = distribution_map.get(id_like.lower())
+                if distribution:
+                    break
+
+        if not distribution:
+            distribution = "generic"
+
+        return {
+            "distribution": distribution,
+            "version": info.get("VERSION_ID", ""),
+            "name": info.get("NAME", ""),
+            "pretty_name": info.get("PRETTY_NAME", ""),
+        }
+    except Exception:
+        return None
+
+
+def get_platform_info() -> Dict[str, Any]:
+    """Get platform information including OS type and Linux distribution details"""
+    system = platform.system().lower()
+
+    info = {
+        "system": system,
+        "distribution": None,
+        "version": "",
+        "name": "",
+        "pretty_name": "",
+    }
+
+    if system == "linux":
+        linux_info = detect_linux_distribution()
+        if linux_info:
+            info.update(linux_info)
+    elif system == "darwin":
+        info["pretty_name"] = "macOS"
+    elif system == "windows":
+        info["pretty_name"] = "Windows"
+
+    return info
+
+
+def get_package_name(tool: str, distribution: str) -> Optional[str]:
+    """Get the package name for a tool on a specific distribution"""
+    # Package name mappings for different distributions
+    package_mappings = {
+        "ubuntu": {
+            "shellcheck": "shellcheck",
+            "yamllint": "yamllint",
+            "nodejs": "nodejs",
+            "npm": "npm",
+            "tsc": "typescript",  # This would be installed via npm
+            "go": "golang-go",
+            "rust": "rustc",
+            "cargo": "cargo",
+            "ruby": "ruby",
+            "php": "php",
+            "composer": "composer",
+            "python3": "python3",
+            "pip": "python3-pip",
+            "docker": "docker.io",
+        },
+        "debian": {
+            "shellcheck": "shellcheck",
+            "yamllint": "yamllint",
+            "nodejs": "nodejs",
+            "npm": "npm",
+            "tsc": "typescript",
+            "go": "golang-go",
+            "rust": "rustc",
+            "cargo": "cargo",
+            "ruby": "ruby",
+            "php": "php",
+            "composer": "composer",
+            "python3": "python3",
+            "pip": "python3-pip",
+            "docker": "docker.io",
+        },
+        "fedora": {
+            "shellcheck": "ShellCheck",
+            "yamllint": "yamllint",
+            "nodejs": "nodejs",
+            "npm": "npm",
+            "tsc": "typescript",
+            "go": "golang",
+            "rust": "rust",
+            "cargo": "cargo",
+            "ruby": "ruby",
+            "php": "php",
+            "composer": "composer",
+            "python3": "python3",
+            "pip": "python3-pip",
+            "docker": "docker",
+        },
+        "rhel": {
+            "shellcheck": "ShellCheck",
+            "yamllint": "yamllint",
+            "nodejs": "nodejs",
+            "npm": "npm",
+            "tsc": "typescript",
+            "go": "golang",
+            "rust": "rust",
+            "cargo": "cargo",
+            "ruby": "ruby",
+            "php": "php",
+            "composer": "composer",
+            "python3": "python3",
+            "pip": "python3-pip",
+            "docker": "docker",
+        },
+        "centos": {
+            "shellcheck": "ShellCheck",
+            "yamllint": "yamllint",
+            "nodejs": "nodejs",
+            "npm": "npm",
+            "tsc": "typescript",
+            "go": "golang",
+            "rust": "rust",
+            "cargo": "cargo",
+            "ruby": "ruby",
+            "php": "php",
+            "composer": "composer",
+            "python3": "python3",
+            "pip": "python3-pip",
+            "docker": "docker",
+        },
+        "arch": {
+            "shellcheck": "shellcheck",
+            "yamllint": "yamllint",
+            "nodejs": "nodejs",
+            "npm": "npm",
+            "tsc": "typescript",
+            "go": "go",
+            "rust": "rust",
+            "cargo": "rust",  # cargo comes with rust package
+            "ruby": "ruby",
+            "php": "php",
+            "composer": "composer",
+            "python3": "python",
+            "pip": "python-pip",
+            "docker": "docker",
+        },
+        "opensuse": {
+            "shellcheck": "ShellCheck",
+            "yamllint": "yamllint",
+            "nodejs": "nodejs",
+            "npm": "npm",
+            "tsc": "typescript",
+            "go": "go",
+            "rust": "rust",
+            "cargo": "cargo",
+            "ruby": "ruby",
+            "php": "php",
+            "composer": "composer",
+            "python3": "python3",
+            "pip": "python3-pip",
+            "docker": "docker",
+        },
+        "alpine": {
+            "shellcheck": "shellcheck",
+            "yamllint": "yamllint",
+            "nodejs": "nodejs",
+            "npm": "npm",
+            "tsc": "typescript",
+            "go": "go",
+            "rust": "rust",
+            "cargo": "cargo",
+            "ruby": "ruby",
+            "php": "php",
+            "composer": "composer",
+            "python3": "python3",
+            "pip": "py3-pip",
+            "docker": "docker",
+        },
+    }
+
+    if distribution in package_mappings:
+        return package_mappings[distribution].get(tool)
+
+    return None
 
 
 def is_git_repository(directory: Path) -> bool:
@@ -1248,9 +1471,169 @@ def analyze_project_files(directory: str = ".") -> Dict[str, Set[str]]:
     return result
 
 
+def get_install_commands(platform_info: Dict[str, Any]) -> Dict[str, str]:
+    """Get installation commands for tools based on platform information"""
+    system = platform_info["system"]
+    distribution = platform_info.get("distribution")
+
+    # Base installation commands - these work across platforms
+    install_commands = {
+        "ruff": "pip install ruff",
+        "black": "pip install black",
+        "eslint": "npm install -g eslint",
+        "prettier": "npm install -g prettier",
+        "tsc": "npm install -g typescript",
+        "rubocop": "gem install rubocop",
+        "php-cs-fixer": "composer global require friendsofphp/php-cs-fixer",
+        "yamllint": "pip install yamllint",
+        "taplo": "cargo install taplo-cli",
+        "just": "cargo install just",
+        "trufflehog": "go install github.com/trufflesecurity/trufflehog/v3@latest",
+    }
+
+    # Platform-specific commands
+    if system == "darwin":
+        install_commands.update(
+            {
+                "gofmt": "brew install go",
+                "rustfmt": "brew install rust",
+                "shellcheck": "brew install shellcheck",
+                "shfmt": "brew install shfmt",
+                "terraform": "brew install terraform",
+                "tflint": "brew install tflint",
+                "actionlint": "brew install actionlint",
+                "just": "brew install just",
+                "trufflehog": "brew install trufflehog",
+            }
+        )
+    elif system == "linux" and distribution:
+        if distribution in ["ubuntu", "debian"]:
+            # Ubuntu/Debian package manager commands
+            install_commands.update(
+                {
+                    "gofmt": "sudo apt install golang-go",
+                    "rustfmt": "sudo apt install rustc",
+                    "shellcheck": "sudo apt install shellcheck",
+                    "shfmt": "go install mvdan.cc/sh/v3/cmd/shfmt@latest",
+                    "terraform": "https://terraform.io/downloads",
+                    "tflint": (
+                        "curl -s https://raw.githubusercontent.com/terraform-linters/tflint/"
+                        "master/install_linux.sh | bash"
+                    ),
+                    "actionlint": "go install github.com/rhymond/actionlint@latest",
+                    "eslint": "sudo apt install npm && npm install -g eslint",
+                    "prettier": "sudo apt install npm && npm install -g prettier",
+                    "tsc": "sudo apt install npm && npm install -g typescript",
+                }
+            )
+        elif distribution in ["fedora", "rhel", "centos"]:
+            # Fedora/RHEL/CentOS package manager commands
+            pkg_manager = "dnf" if distribution == "fedora" else "yum"
+            install_commands.update(
+                {
+                    "gofmt": f"sudo {pkg_manager} install golang",
+                    "rustfmt": f"sudo {pkg_manager} install rust",
+                    "shellcheck": f"sudo {pkg_manager} install ShellCheck",
+                    "shfmt": "go install mvdan.cc/sh/v3/cmd/shfmt@latest",
+                    "terraform": "https://terraform.io/downloads",
+                    "tflint": (
+                        "curl -s https://raw.githubusercontent.com/terraform-linters/tflint/"
+                        "master/install_linux.sh | bash"
+                    ),
+                    "actionlint": "go install github.com/rhymond/actionlint@latest",
+                    "eslint": f"sudo {pkg_manager} install npm && npm install -g eslint",
+                    "prettier": f"sudo {pkg_manager} install npm && npm install -g prettier",
+                    "tsc": f"sudo {pkg_manager} install npm && npm install -g typescript",
+                }
+            )
+        elif distribution == "arch":
+            # Arch Linux package manager commands
+            install_commands.update(
+                {
+                    "gofmt": "sudo pacman -S go",
+                    "rustfmt": "sudo pacman -S rust",
+                    "shellcheck": "sudo pacman -S shellcheck",
+                    "shfmt": "go install mvdan.cc/sh/v3/cmd/shfmt@latest",
+                    "terraform": "sudo pacman -S terraform",
+                    "tflint": "yay -S tflint-bin",  # AUR package
+                    "actionlint": "go install github.com/rhymond/actionlint@latest",
+                    "eslint": "sudo pacman -S npm && npm install -g eslint",
+                    "prettier": "sudo pacman -S npm && npm install -g prettier",
+                    "tsc": "sudo pacman -S npm && npm install -g typescript",
+                }
+            )
+        elif distribution == "opensuse":
+            # openSUSE package manager commands
+            install_commands.update(
+                {
+                    "gofmt": "sudo zypper install go",
+                    "rustfmt": "sudo zypper install rust",
+                    "shellcheck": "sudo zypper install ShellCheck",
+                    "shfmt": "go install mvdan.cc/sh/v3/cmd/shfmt@latest",
+                    "terraform": "https://terraform.io/downloads",
+                    "tflint": (
+                        "curl -s https://raw.githubusercontent.com/terraform-linters/tflint/"
+                        "master/install_linux.sh | bash"
+                    ),
+                    "actionlint": "go install github.com/rhymond/actionlint@latest",
+                    "eslint": "sudo zypper install npm && npm install -g eslint",
+                    "prettier": "sudo zypper install npm && npm install -g prettier",
+                    "tsc": "sudo zypper install npm && npm install -g typescript",
+                }
+            )
+        elif distribution == "alpine":
+            # Alpine Linux package manager commands
+            install_commands.update(
+                {
+                    "gofmt": "sudo apk add go",
+                    "rustfmt": "sudo apk add rust",
+                    "shellcheck": "sudo apk add shellcheck",
+                    "shfmt": "go install mvdan.cc/sh/v3/cmd/shfmt@latest",
+                    "terraform": "https://terraform.io/downloads",
+                    "tflint": (
+                        "curl -s https://raw.githubusercontent.com/terraform-linters/tflint/"
+                        "master/install_linux.sh | bash"
+                    ),
+                    "actionlint": "go install github.com/rhymond/actionlint@latest",
+                    "eslint": "sudo apk add npm && npm install -g eslint",
+                    "prettier": "sudo apk add npm && npm install -g prettier",
+                    "tsc": "sudo apk add npm && npm install -g typescript",
+                }
+            )
+        else:
+            # Generic Linux fallback
+            install_commands.update(
+                {
+                    "gofmt": "install Go from https://golang.org/dl/",
+                    "rustfmt": "install Rust from https://rustup.rs/",
+                    "shellcheck": "install ShellCheck from https://github.com/koalaman/shellcheck",
+                    "shfmt": "go install mvdan.cc/sh/v3/cmd/shfmt@latest",
+                    "terraform": "https://terraform.io/downloads",
+                    "tflint": "https://github.com/terraform-linters/tflint",
+                    "actionlint": "go install github.com/rhymond/actionlint@latest",
+                }
+            )
+    else:
+        # Generic fallback for other systems
+        install_commands.update(
+            {
+                "gofmt": "install Go from https://golang.org/dl/",
+                "rustfmt": "install Rust from https://rustup.rs/",
+                "shellcheck": "install ShellCheck from https://github.com/koalaman/shellcheck",
+                "shfmt": "go install mvdan.cc/sh/v3/cmd/shfmt@latest",
+                "terraform": "https://terraform.io/downloads",
+                "tflint": "https://github.com/terraform-linters/tflint",
+                "actionlint": "go install github.com/rhymond/actionlint@latest",
+            }
+        )
+
+    return install_commands
+
+
 def get_tool_suggestions(extensions: Set[str]) -> Dict[str, List[str]]:
     """Get tool installation suggestions for missing extensions"""
     suggestions = {}
+    platform_info = get_platform_info()
 
     # Map extensions to their primary recommended tools
     tool_recommendations = {
@@ -1281,32 +1664,8 @@ def get_tool_suggestions(extensions: Set[str]) -> Dict[str, List[str]]:
         ".security": ["trufflehog"],
     }
 
-    # Installation commands for different tools
-    install_commands = {
-        "ruff": "pip install ruff",
-        "black": "pip install black",
-        "eslint": "npm install -g eslint",
-        "prettier": "npm install -g prettier",
-        "tsc": "npm install -g typescript",
-        "gofmt": "install Go",
-        "rustfmt": "install Rust",
-        "rubocop": "gem install rubocop",
-        "php-cs-fixer": "composer global require friendsofphp/php-cs-fixer",
-        "shellcheck": "brew install shellcheck (macOS) or apt install shellcheck (Ubuntu)",
-        "shfmt": "brew install shfmt (macOS) or go install mvdan.cc/sh/v3/cmd/shfmt@latest",
-        "yamllint": "pip install yamllint",
-        "taplo": "brew install taplo (macOS) or cargo install taplo-cli",
-        "terraform": "https://terraform.io/downloads",
-        "tflint": "brew install tflint (macOS) or https://github.com/terraform-linters/tflint",
-        "actionlint": (
-            "brew install actionlint (macOS) or go install github.com/rhymond/actionlint@latest"
-        ),
-        "just": "brew install just (macOS) or cargo install just",
-        "trufflehog": (
-            "brew install trufflehog (macOS) or "
-            "go install github.com/trufflesecurity/trufflehog/v3@latest"
-        ),
-    }
+    # Get platform-specific installation commands
+    install_commands = get_install_commands(platform_info)
 
     for ext in extensions:
         if ext in tool_recommendations:
@@ -1325,6 +1684,21 @@ def get_tool_suggestions(extensions: Set[str]) -> Dict[str, List[str]]:
 def suggest_tools() -> int:
     """Analyze project and suggest missing tools"""
     print("🔍 Analyzing project files...")
+
+    # Get platform information
+    platform_info = get_platform_info()
+
+    # Show platform information
+    if platform_info["system"] == "linux" and platform_info["distribution"]:
+        platform_name = platform_info.get("pretty_name", platform_info["name"])
+        if platform_name:
+            print(f"🐧 Detected platform: {platform_name}")
+        else:
+            print(f"🐧 Detected platform: Linux ({platform_info['distribution']})")
+    elif platform_info["system"] == "darwin":
+        print("🍎 Detected platform: macOS")
+    elif platform_info["system"] == "windows":
+        print("🪟 Detected platform: Windows")
 
     analysis = analyze_project_files()
     found_extensions = analysis["found_extensions"]
@@ -1360,13 +1734,32 @@ def suggest_tools() -> int:
     missing_extensions = analysis["missing_linters"] | analysis["missing_formatters"]
 
     if missing_extensions:
-        print("\n💡 Suggested tool installations:")
+        # Show platform-specific header
+        if platform_info["system"] == "linux" and platform_info["distribution"]:
+            platform_name = platform_info.get("pretty_name", platform_info["name"])
+            if platform_name:
+                print(f"\n💡 Suggested tool installations for {platform_name}:")
+            else:
+                distribution = platform_info["distribution"]
+                print(f"\n💡 Suggested tool installations for Linux ({distribution}):")
+        else:
+            print("\n💡 Suggested tool installations:")
+
         suggestions = get_tool_suggestions(missing_extensions)
 
         for ext in sorted(suggestions.keys()):
             print(f"\n  {ext} files:")
             for suggestion in suggestions[ext]:
                 print(f"    {suggestion}")
+
+        # Add helpful notes for Linux users
+        if platform_info["system"] == "linux":
+            print("\n📝 Installation notes:")
+            print("  • Some tools may require additional setup (e.g., adding to PATH)")
+            print("  • For Go tools, ensure Go is installed and GOPATH is configured")
+            print("  • For npm tools, ensure Node.js and npm are installed")
+            print("  • For pip tools, ensure Python and pip are installed")
+            print("  • For cargo tools, ensure Rust is installed")
     else:
         print("\n🎉 All recommended tools are already available!")
 
