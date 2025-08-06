@@ -14,16 +14,23 @@ Mostly written by AI (Claude Sonnet).
 
 ## Supported Languages & Tools
 
-| Language       | Priority Order                                                   |
-| -------------- | ---------------------------------------------------------------- |
-| **Python**     | ruff → uvx ruff → black → flake8 → pylint → python -m py_compile |
-| **JavaScript** | eslint → prettier → node --check                                 |
-| **TypeScript** | eslint → tsc --noEmit → prettier                                 |
-| **Go**         | gofmt                                                            |
-| **Rust**       | rustfmt                                                          |
-| **Ruby**       | rubocop                                                          |
-| **PHP**        | php-cs-fixer                                                     |
-| **JSON/CSS**   | prettier                                                         |
+| Language        | Priority Order                                                   |
+| --------------- | ---------------------------------------------------------------- |
+| **Python**      | ruff → uvx ruff → black → flake8 → pylint → python -m py_compile |
+| **JavaScript**  | eslint → prettier → node --check                                 |
+| **TypeScript**  | eslint → tsc --noEmit → prettier                                 |
+| **Go**          | gofmt                                                            |
+| **Rust**        | rustfmt                                                          |
+| **Ruby**        | rubocop                                                          |
+| **PHP**         | php-cs-fixer                                                     |
+| **Shell**       | shellcheck → beautysh (linting), shfmt → beautysh (formatting)  |
+| **JSON/CSS**    | prettier                                                         |
+| **YAML**        | yamllint → prettier                                              |
+| **TOML**        | taplo check → taplo format                                       |
+| **Terraform**   | terraform validate/tflint → terraform fmt                       |
+| **Justfile**    | just --fmt --check → just --fmt                                 |
+| **GitHub Actions** | actionlint → yamllint → prettier (.github/workflows/*.yml)   |
+| **Security**    | trufflehog (scans for secrets across all file types)            |
 
 ## Installation
 
@@ -63,14 +70,29 @@ python -m taidy file.py
 ### Basic Usage
 
 ```bash
-# Lint/format specific files
+# Lint/format specific files (default mode: both lint and format)
 taidy main.py utils.js styles.css
 
 # Or with python -m
 python -m taidy main.py utils.js styles.css
 
-# Lint/format all files in current directory (with find)
-find . -name "*.py" -o -name "*.js" | xargs taidy
+# Process all supported files in current directory
+taidy .
+
+# Process all files in a directory
+taidy src/
+
+# Lint only (no formatting)
+taidy lint main.py utils.js
+
+# Format only (no linting)
+taidy format main.py utils.js
+
+# Analyze project and suggest missing tools
+taidy suggest
+
+# Run taidy in Docker with all tools pre-installed
+taidy docker .
 
 # Show help
 taidy --help
@@ -88,8 +110,17 @@ taidy src/main.py tests/test_utils.py
 # Mixed file types - each gets the appropriate linter
 taidy main.py app.js styles.css README.md
 
+# Process entire project directory
+taidy .
+
 # TypeScript project
-taidy src/**/*.ts src/**/*.tsx
+taidy src/
+
+# Security scanning (if trufflehog is available)
+taidy lint .  # Will include security scanning for all files
+
+# Analyze what tools are missing for your project
+taidy suggest
 ```
 
 ## How It Works
@@ -119,16 +150,25 @@ For example, with a Python file:
 
 ```bash
 # Install in development mode
-pip install -e .
+just install-dev
 
 # Build distribution packages
-python -m build
+just dist
 
-# Run tests
+# Run all tests
 just test
 
-# Clean build artifacts
-just clean
+# Run tests with coverage
+just test-coverage
+
+# Run specific feature test
+just test-feature features/python.feature
+
+# Lint and format code
+just check
+
+# Build for release
+just build-release
 ```
 
 ### Testing
@@ -158,8 +198,11 @@ MIT License - see [LICENSE](LICENSE) file for details.
 ## Roadmap
 
 - [x] Configuration file support (.taidy.json)
+- [x] Security scanning with trufflehog
+- [x] Directory processing
+- [x] Multiple operation modes (lint, format, suggest, docker)
+- [x] Parallel execution for multiple files
 - [ ] Custom linter definitions
-- [ ] Parallel execution for multiple files
 - [ ] Plugin system
 - [ ] More language support (C++, C#, Kotlin, etc.)
 - [ ] Integration with popular editors (VS Code, vim, emacs)
