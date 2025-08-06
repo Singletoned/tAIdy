@@ -1,0 +1,105 @@
+name: Publish to PyPI
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install build twine
+
+      - name: Test package installation
+        run: |
+          pip install -e .
+          taidy --version
+
+      - name: Run basic smoke test
+        run: |
+          echo 'print("hello")' > test_file.py
+          taidy test_file.py
+
+  build:
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install build dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install build
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          # Remove 'v' prefix from tag if present
+          VERSION=${GITHUB_REF#refs/tags/}
+          VERSION=${VERSION#v}
+          echo "version=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+
+      - name: Update version in package
+        run: |
+          # Update version in pyproject.toml
+          sed -i "s/version = .*/version = \"${{ steps.version.outputs.version }}\"/" pyproject.toml
+
+          # Update version in taidy/__init__.py if it exists
+          if [ -f taidy/__init__.py ]; then
+            sed -i "s/__version__ = .*/__version__ = \"${{ steps.version.outputs.version }}\"/" taidy/__init__.py
+          fi
+
+          # Update version in cli.py
+          sed -i "s/VERSION = .*/VERSION = \"${{ steps.version.outputs.version }}\"/" taidy/cli.py
+
+      - name: Build package
+        run: python -m build
+
+      - name: Check distribution
+        run: |
+          python -m twine check dist/*
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    environment: release
+    permissions:
+      id-token: write # Required for trusted publishing
+
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish to PyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          print-hash: true
