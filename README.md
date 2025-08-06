@@ -14,23 +14,23 @@ Mostly written by AI (Claude Sonnet).
 
 ## Supported Languages & Tools
 
-| Language        | Priority Order                                                   |
-| --------------- | ---------------------------------------------------------------- |
-| **Python**      | ruff → uvx ruff → black → flake8 → pylint → python -m py_compile |
-| **JavaScript**  | eslint → prettier → node --check                                 |
-| **TypeScript**  | eslint → tsc --noEmit → prettier                                 |
-| **Go**          | gofmt                                                            |
-| **Rust**        | rustfmt                                                          |
-| **Ruby**        | rubocop                                                          |
-| **PHP**         | php-cs-fixer                                                     |
-| **Shell**       | shellcheck → beautysh (linting), shfmt → beautysh (formatting)  |
-| **JSON/CSS**    | prettier                                                         |
-| **YAML**        | yamllint → prettier                                              |
-| **TOML**        | taplo check → taplo format                                       |
-| **Terraform**   | terraform validate/tflint → terraform fmt                       |
-| **Justfile**    | just --fmt --check → just --fmt                                 |
-| **GitHub Actions** | actionlint → yamllint → prettier (.github/workflows/*.yml)   |
-| **Security**    | trufflehog (scans for secrets across all file types)            |
+| Language           | Priority Order                                                   |
+| ------------------ | ---------------------------------------------------------------- |
+| **Python**         | ruff → uvx ruff → black → flake8 → pylint → python -m py_compile |
+| **JavaScript**     | eslint → prettier → node --check                                 |
+| **TypeScript**     | eslint → tsc --noEmit → prettier                                 |
+| **Go**             | gofmt                                                            |
+| **Rust**           | rustfmt                                                          |
+| **Ruby**           | rubocop                                                          |
+| **PHP**            | php-cs-fixer                                                     |
+| **Shell**          | shellcheck → beautysh (linting), shfmt → beautysh (formatting)   |
+| **JSON/CSS**       | prettier                                                         |
+| **YAML**           | yamllint → prettier                                              |
+| **TOML**           | taplo check → taplo format                                       |
+| **Terraform**      | terraform validate/tflint → terraform fmt                        |
+| **Justfile**       | just --fmt --check → just --fmt                                  |
+| **GitHub Actions** | actionlint → yamllint → prettier (.github/workflows/\*.yml)      |
+| **Security**       | trufflehog (scans for secrets across all file types)             |
 
 ## Installation
 
