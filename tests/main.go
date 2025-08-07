@@ -18,6 +18,8 @@ var opts = godog.Options{
 	Concurrency: 4, // run scenarios in parallel
 }
 
+var format = flag.String("format", "progress", "Output format")
+
 func init() {
 	godog.BindCommandLineFlags("", &opts)
 }
@@ -47,8 +49,24 @@ func InitializeScenario(ctx *godog.ScenarioContext) {
 
 func main() {
 	flag.Parse()
-	opts.Paths = flag.Args()
 
+	// Set format from command line
+	if *format != "progress" {
+		opts.Format = *format
+	}
+
+	// Handle output redirection for JSON format
+	if *format == "cucumber" {
+		jsonFile, err := os.Create("bdd-results.json")
+		if err != nil {
+			fmt.Printf("Failed to create JSON report: %v\n", err)
+			os.Exit(1)
+		}
+		defer jsonFile.Close()
+		opts.Output = jsonFile
+	}
+
+	opts.Paths = flag.Args()
 	if len(opts.Paths) == 0 {
 		opts.Paths = []string{"features"}
 	}
