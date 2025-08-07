@@ -1273,6 +1273,8 @@ def process_files(files: List[str], mode: Mode) -> int:
 
     # Group files by their file extension
     file_groups: Dict[str, List[str]] = {}
+    # Track which extensions we've already warned about
+    warned_extensions: Set[str] = set()
 
     for file in expanded_files:
         file_path = Path(file)
@@ -1303,7 +1305,10 @@ def process_files(files: List[str], mode: Mode) -> int:
                 file_groups[mapped_ext] = []
             file_groups[mapped_ext].append(file)
         else:
-            logger.warning(f"No linter configured for file {file} (extension: {ext})")
+            # Only warn once per extension
+            if ext not in warned_extensions:
+                logger.warning(f"No linter configured for extension {ext}")
+                warned_extensions.add(ext)
 
         # Add to security scanning group if trufflehog is available, we're linting,
         # and we're scanning a single directory (not individual files)
