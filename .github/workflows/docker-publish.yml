@@ -1,0 +1,118 @@
+name: Build and Publish Docker Image
+
+on:
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*'
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Container Registry
+        if: github.event_name != 'pull_request'
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
+          tags: |
+            type=ref,event=branch
+            type=ref,event=pr
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push Docker image
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Test Docker image
+        run: |
+          echo "Testing Docker image functionality..."
+          docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest --version
+          docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest --help
+          
+          # Run health check
+          docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest /bin/bash -c "healthcheck"
+          
+          # Test with sample files
+          mkdir -p test_workspace
+          echo 'def hello():print("hello")' > test_workspace/test.py
+          echo '{"name":"test","invalid":json}' > test_workspace/test.json
+          
+          # Test linting
+          docker run --rm -v "$(pwd)/test_workspace:/workspace" ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest lint test.py test.json || true
+          
+          # Cleanup
+          rm -rf test_workspace
+
+      - name: Generate usage documentation
+        if: github.event_name != 'pull_request'
+        run: |
+          echo "## Docker Image Usage" > docker-usage.md
+          echo "" >> docker-usage.md
+          echo "The taidy Docker image includes all supported linters and formatters." >> docker-usage.md
+          echo "" >> docker-usage.md
+          echo "### Quick Start" >> docker-usage.md
+          echo "" >> docker-usage.md
+          echo '```bash' >> docker-usage.md
+          echo "# Lint and format files in current directory" >> docker-usage.md
+          echo 'docker run --rm -v "$(pwd):/workspace" ghcr.io/${{ github.repository }}:latest .' >> docker-usage.md
+          echo "" >> docker-usage.md
+          echo "# Lint specific files" >> docker-usage.md
+          echo 'docker run --rm -v "$(pwd):/workspace" ghcr.io/${{ github.repository }}:latest lint file1.py file2.js' >> docker-usage.md
+          echo "" >> docker-usage.md
+          echo "# Format specific files" >> docker-usage.md
+          echo 'docker run --rm -v "$(pwd):/workspace" ghcr.io/${{ github.repository }}:latest format file1.py file2.js' >> docker-usage.md
+          echo "" >> docker-usage.md
+          echo "# Check available tools" >> docker-usage.md
+          echo 'docker run --rm ghcr.io/${{ github.repository }}:latest /bin/bash -c "healthcheck"' >> docker-usage.md
+          echo '```' >> docker-usage.md
+          echo "" >> docker-usage.md
+          echo "### Available Tags" >> docker-usage.md
+          echo "" >> docker-usage.md
+          echo "- \`latest\` - Latest stable release from main branch" >> docker-usage.md
+          echo "- \`v*\` - Specific version tags (e.g., v1.0.0)" >> docker-usage.md
+          echo "- \`main\` - Latest development build" >> docker-usage.md
+
+      - name: Upload documentation artifact
+        if: github.event_name != 'pull_request'
+        uses: actions/upload-artifact@v4
+        with:
+          name: docker-usage-docs
+          path: docker-usage.md

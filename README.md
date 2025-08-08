@@ -57,7 +57,19 @@ cd taidy
 pip install -e .
 ```
 
-### Option 4: Run Directly (No Installation)
+### Option 4: Docker (Includes All Tools)
+
+```bash
+# Pull the pre-built image with all linters/formatters included
+docker pull ghcr.io/singletoned/taidy:latest
+
+# Use it to lint/format files in current directory
+docker run --rm -v "$(pwd):/workspace" ghcr.io/singletoned/taidy:latest .
+```
+
+See [DOCKER.md](DOCKER.md) for detailed Docker usage instructions.
+
+### Option 5: Run Directly (No Installation)
 
 ```bash
 git clone https://github.com/singletoned/taidy.git
