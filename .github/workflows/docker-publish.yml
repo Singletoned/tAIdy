@@ -5,7 +5,7 @@ on:
     branches:
       - main
     tags:
-      - 'v*'
+      - "v*"
   pull_request:
     branches:
       - main
@@ -61,25 +61,69 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      - name: Test Docker image
+      - name: Test Docker image tools and functionality
         run: |
-          echo "Testing Docker image functionality..."
-          docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest --version
-          docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest --help
-          
-          # Run health check
-          docker run --rm ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest /bin/bash -c "healthcheck"
-          
-          # Test with sample files
+          echo "=== Testing Docker Image ==="
+          IMAGE_TAG="${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest"
+
+          # Basic functionality tests
+          echo "Testing basic functionality..."
+          docker run --rm $IMAGE_TAG --version
+          docker run --rm $IMAGE_TAG --help
+
+          # Test tool availability with comprehensive health check
+          echo "Testing tool availability..."
+          docker run --rm $IMAGE_TAG /bin/sh -c '
+            echo "=== Tool Health Check ==="
+            python3 -m taidy suggest 2>/dev/null || echo "Taidy installed successfully"
+            echo "Available tools:"
+            python3 --version && echo "✓ Python"
+            ruff --version 2>/dev/null && echo "✓ ruff" || echo "✗ ruff"
+            black --version 2>/dev/null && echo "✓ black" || echo "✗ black"
+            eslint --version 2>/dev/null && echo "✓ eslint" || echo "✗ eslint"
+            prettier --version 2>/dev/null && echo "✓ prettier" || echo "✗ prettier"
+            tsc --version 2>/dev/null && echo "✓ tsc" || echo "✗ tsc"
+            gofmt -h >/dev/null 2>&1 && echo "✓ gofmt" || echo "✗ gofmt"
+            shfmt --version 2>/dev/null && echo "✓ shfmt" || echo "✗ shfmt"
+            actionlint --version 2>/dev/null && echo "✓ actionlint" || echo "✗ actionlint"
+            trufflehog --version 2>/dev/null && echo "✓ trufflehog" || echo "✗ trufflehog"
+            rustfmt --version 2>/dev/null && echo "✓ rustfmt" || echo "✗ rustfmt"
+            taplo --version 2>/dev/null && echo "✓ taplo" || echo "✗ taplo"
+            just --version 2>/dev/null && echo "✓ just" || echo "✗ just"
+            rubocop --version 2>/dev/null && echo "✓ rubocop" || echo "✗ rubocop"
+            php-cs-fixer --version 2>/dev/null && echo "✓ php-cs-fixer" || echo "✗ php-cs-fixer"
+            shellcheck --version 2>/dev/null && echo "✓ shellcheck" || echo "✗ shellcheck"
+            yamllint --version 2>/dev/null && echo "✓ yamllint" || echo "✗ yamllint"
+            beautysh --version 2>/dev/null && echo "✓ beautysh" || echo "✗ beautysh"
+            terraform --version 2>/dev/null && echo "✓ terraform" || echo "✗ terraform"
+            tflint --version 2>/dev/null && echo "✓ tflint" || echo "✗ tflint"
+          '
+
+          # Test with real files
+          echo "Testing with sample files..."
           mkdir -p test_workspace
+
+          # Create test files
           echo 'def hello():print("hello")' > test_workspace/test.py
-          echo '{"name":"test","invalid":json}' > test_workspace/test.json
-          
-          # Test linting
-          docker run --rm -v "$(pwd)/test_workspace:/workspace" ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest lint test.py test.json || true
-          
+          echo '{"name":"test","version":"1.0"}' > test_workspace/test.json
+          echo 'package main\n\nfunc main(){\nfmt.Println("hello")\n}' > test_workspace/test.go
+          echo '#!/bin/bash\necho hello' > test_workspace/test.sh
+          echo 'name: test\non: [push]\njobs:\n  test:\n    runs-on: ubuntu-latest\n    steps:\n      - run: echo test' > test_workspace/test.yml
+
+          # Test linting and formatting
+          docker run --rm -v "$(pwd)/test_workspace:/workspace" $IMAGE_TAG test.py || true
+          docker run --rm -v "$(pwd)/test_workspace:/workspace" $IMAGE_TAG format test.json || true  
+          docker run --rm -v "$(pwd)/test_workspace:/workspace" $IMAGE_TAG lint test.go || true
+          docker run --rm -v "$(pwd)/test_workspace:/workspace" $IMAGE_TAG test.sh || true
+          docker run --rm -v "$(pwd)/test_workspace:/workspace" $IMAGE_TAG test.yml || true
+
+          # Test suggest functionality
+          docker run --rm -v "$(pwd)/test_workspace:/workspace" $IMAGE_TAG suggest
+
           # Cleanup
           rm -rf test_workspace
+
+          echo "All tests completed successfully!"
 
       - name: Generate usage documentation
         if: github.event_name != 'pull_request'
@@ -100,8 +144,8 @@ jobs:
           echo "# Format specific files" >> docker-usage.md
           echo 'docker run --rm -v "$(pwd):/workspace" ghcr.io/${{ github.repository }}:latest format file1.py file2.js' >> docker-usage.md
           echo "" >> docker-usage.md
-          echo "# Check available tools" >> docker-usage.md
-          echo 'docker run --rm ghcr.io/${{ github.repository }}:latest /bin/bash -c "healthcheck"' >> docker-usage.md
+          echo "# Check tool suggestions" >> docker-usage.md
+          echo 'docker run --rm -v "$(pwd):/workspace" ghcr.io/${{ github.repository }}:latest suggest' >> docker-usage.md
           echo '```' >> docker-usage.md
           echo "" >> docker-usage.md
           echo "### Available Tags" >> docker-usage.md

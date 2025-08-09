@@ -101,7 +101,7 @@ RUN cargo install taplo-cli --locked && \
 RUN gem install rubocop --no-document
 
 # Install PHP tools via Composer
-RUN composer global require friendsofphp/php-cs-fixer --no-dev --optimize-autoloader
+RUN composer global require friendsofphp/php-cs-fixer --optimize-autoloader
 
 # Copy and install Taidy
 WORKDIR /app
@@ -168,8 +168,6 @@ ENV PATH="/usr/local/bin:/root/.composer/vendor/bin:$PATH" \
     GEM_PATH="/usr/local/bundle" \
     BUNDLE_PATH="/usr/local/bundle"
 
-# Create optimized health check script (using sh instead of bash for speed)
-RUN printf '#!/bin/sh\necho "=== Tool Health Check ==="\npython3 -m taidy suggest 2>/dev/null || echo "Taidy installed successfully"\necho "Available tools:"\npython3 --version && echo "✓ Python"\nruff --version 2>/dev/null && echo "✓ ruff" || echo "✗ ruff"\nblack --version 2>/dev/null && echo "✓ black" || echo "✗ black"\neslint --version 2>/dev/null && echo "✓ eslint" || echo "✗ eslint"\nprettier --version 2>/dev/null && echo "✓ prettier" || echo "✗ prettier"\ntsc --version 2>/dev/null && echo "✓ tsc" || echo "✗ tsc"\ngofmt -h >/dev/null 2>&1 && echo "✓ gofmt" || echo "✗ gofmt"\nshfmt --version 2>/dev/null && echo "✓ shfmt" || echo "✗ shfmt"\nactionlint --version 2>/dev/null && echo "✓ actionlint" || echo "✗ actionlint"\ntrufflehog --version 2>/dev/null && echo "✓ trufflehog" || echo "✗ trufflehog"\nrustfmt --version 2>/dev/null && echo "✓ rustfmt" || echo "✗ rustfmt"\ntaplo --version 2>/dev/null && echo "✓ taplo" || echo "✗ taplo"\njust --version 2>/dev/null && echo "✓ just" || echo "✗ just"\nrubocop --version 2>/dev/null && echo "✓ rubocop" || echo "✗ rubocop"\nphp-cs-fixer --version 2>/dev/null && echo "✓ php-cs-fixer" || echo "✗ php-cs-fixer"\nshellcheck --version 2>/dev/null && echo "✓ shellcheck" || echo "✗ shellcheck"\nyamllint --version 2>/dev/null && echo "✓ yamllint" || echo "✗ yamllint"\nbeautysh --version 2>/dev/null && echo "✓ beautysh" || echo "✗ beautysh"\nterraform --version 2>/dev/null && echo "✓ terraform" || echo "✗ terraform"\ntflint --version 2>/dev/null && echo "✓ tflint" || echo "✗ tflint"\n' > /usr/local/bin/healthcheck && chmod +x /usr/local/bin/healthcheck
 
 # Create lightweight entrypoint script
 RUN printf '#!/bin/sh\ncd /workspace 2>/dev/null || true\nexec python3 -m taidy "$@"\n' > /usr/local/bin/entrypoint.sh && \
