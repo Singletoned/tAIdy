@@ -179,5 +179,5 @@ WORKDIR /workspace
 # Set the entrypoint
 ENTRYPOINT ["/usr/local/bin/entrypoint.sh"]
 
-# Default command shows help
-CMD ["--help"]
+# Default command processes current workspace
+CMD ["."]
