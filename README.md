@@ -2,7 +2,7 @@
 
 A linter/formatter for all file types. Designed for AI agents to be able to easily use, so that you can tell them to use this for every file and it won't fail. Detects what tools are installed and uses them. If it can't find a tool, it passes silently.
 
-Mostly written by AI (Claude Sonnet).
+Mostly written by AI (Claude Code and Aider).
 
 ## Features
 
@@ -206,25 +206,3 @@ just test-feature features/python.feature
 ## License
 
 MIT License - see [LICENSE](LICENSE) file for details.
-
-## Roadmap
-
-- [x] Configuration file support (.taidy.json)
-- [x] Security scanning with trufflehog
-- [x] Directory processing
-- [x] Multiple operation modes (lint, format, suggest, docker)
-- [x] Parallel execution for multiple files
-- [ ] Custom linter definitions
-- [ ] Plugin system
-- [ ] More language support (C++, C#, Kotlin, etc.)
-- [ ] Integration with popular editors (VS Code, vim, emacs)
-
-## Inspiration
-
-Inspired by tools like:
-
-- [trunk](https://trunk.io/) - Universal linter/formatter
-- [mega-linter](https://megalinter.io/) - Comprehensive linting suite
-- [pre-commit](https://pre-commit.com/) - Git hook framework
-
-Taidy aims to be simpler and more focused: just automatically run the right linter for each file type.
