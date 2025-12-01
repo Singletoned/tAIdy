@@ -1,15 +1,15 @@
 #!/usr/bin/env python3
 """Unit tests for tool detection functions."""
 
-import unittest
-from unittest.mock import patch, MagicMock
-import sys
 import os
+import sys
+import unittest
+from unittest.mock import patch
 
 # Add the parent directory to the path to import taidy
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
-from taidy.cli import is_command_available, get_platform_info, detect_linux_distribution
+from taidy.cli import detect_linux_distribution, get_platform_info, is_command_available
 
 
 class TestToolDetection(unittest.TestCase):

@@ -1,18 +1,18 @@
 #!/usr/bin/env python3
 """Integration tests for configuration system with real file operations."""
 
-import unittest
-import tempfile
-import shutil
 import json
 import os
+import shutil
 import sys
+import tempfile
+import unittest
 from pathlib import Path
 
 # Add the parent directory to the path to import taidy
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
-from taidy.cli import load_config, should_ignore_file, discover_files_in_directory
+from taidy.cli import discover_files_in_directory, load_config, should_ignore_file
 
 
 class TestConfigurationSystemIntegration(unittest.TestCase):
@@ -247,7 +247,7 @@ class TestConfigurationIntegrationWithDiscovery(unittest.TestCase):
         discovered_files = discover_files_in_directory(".")
 
         # Should find Python files but exclude ignored ones
-        discovered_set = set(discovered_files)
+        set(discovered_files)
         
         # These should be found
         self.assertTrue(any("main.py" in f for f in discovered_files))
@@ -295,7 +295,7 @@ class TestConfigurationIntegrationWithDiscovery(unittest.TestCase):
         discovered_files = discover_files_in_directory(".")
 
         # Should find all supported files
-        discovered_set = set(discovered_files)
+        set(discovered_files)
         self.assertTrue(any("main.py" in f for f in discovered_files))
         self.assertTrue(any("script.js" in f for f in discovered_files))
         self.assertTrue(any("styles.css" in f for f in discovered_files))

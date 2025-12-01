@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Unit tests for configuration loading functions."""
 
-import unittest
-from unittest.mock import patch, mock_open, MagicMock
 import json
-import sys
 import os
+import sys
+import unittest
+from unittest.mock import MagicMock, mock_open, patch
 
 # Add the parent directory to the path to import taidy
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))

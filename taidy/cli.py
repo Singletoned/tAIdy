@@ -38,13 +38,20 @@ Examples:
   taidy src/                  # Process all supported files in src/ directory
   taidy lint file1.py file2.js  # Lint multiple files
   taidy suggest               # Analyze project and suggest missing tools
-  taidy docker .              # Run taidy in Docker container with all tools
+  taidy docker .              # Run taidy in Docker (pulls prebuilt image)
+  taidy docker --build-local .  # Build and run Docker image locally
+  taidy docker --pull-always .  # Always pull latest image before running
 
 Flags:
   -h, --help     Show this help message
   --version      Show version information
   --verbose      Show verbose output (info level)
-  -q, --quiet    Suppress warnings (errors only)"""
+  -q, --quiet    Suppress warnings (errors only)
+
+Docker Flags (used with 'docker' command):
+  --pull-always       Always pull the latest image before running
+  --build-local       Build the Docker image locally instead of pulling
+  --image <name>      Use a custom Docker image (default: ghcr.io/singletoned/taidy:latest)"""
 
 DIRECTORY_PROCESSING_TEXT = """Directory Processing:
   When a directory is specified, taidy recursively finds all supported files
@@ -437,8 +444,26 @@ def should_ignore_file(file_path: Path, ignore_patterns: List[str]) -> bool:
     return False
 
 
+def _get_logger_level() -> int:
+    """Return a usable numeric log level even when logger is patched."""
+    level = logger.getEffectiveLevel()
+    if isinstance(level, int):
+        return level
+    return logging.WARNING
+
+
+def _get_trufflehog_log_level() -> str:
+    """Choose log level for trufflehog, keeping default runs quiet."""
+    if _get_logger_level() <= logging.INFO:
+        return "0"
+    return "-1"
+
+
 def _get_trufflehog_command(files: List[str]) -> Tuple[str, List[str]]:
     """Get the appropriate trufflehog command based on git repository status."""
+    log_level = _get_trufflehog_log_level()
+    log_level_arg = f"--log-level={log_level}"
+
     # Check if we're in a git repository
     current_dir = Path.cwd()
     if is_git_repository(current_dir):
@@ -447,11 +472,21 @@ def _get_trufflehog_command(files: List[str]) -> Tuple[str, List[str]]:
         git_uri = f"file://{current_dir.absolute()}"
         return (
             "trufflehog",
-            ["git", "--max-depth=1", "--no-update", "--fail", "--log-level=-1", git_uri],
+            [
+                "git",
+                "--max-depth=1",
+                "--no-update",
+                "--fail",
+                log_level_arg,
+                git_uri,
+            ],
         )
     else:
         # Use filesystem mode for non-git directories
-        return ("trufflehog", ["filesystem", "--no-update", "--fail", "--log-level=-1"] + files)
+        return (
+            "trufflehog",
+            ["filesystem", "--no-update", "--fail", log_level_arg] + files,
+        )
 
 
 def discover_files_in_directory(directory_path: str) -> List[str]:
@@ -1140,12 +1175,19 @@ def execute_batched_command(
 
         result = subprocess.run([cmd] + args, capture_output=True, text=True, env=env)
 
+        suppress_output = (
+            cmd == "trufflehog"
+            and result.returncode == 0
+            and _get_logger_level() > logging.INFO
+        )
+
         # Print output atomically to avoid mixing
-        with output_lock:
-            if result.stdout:
-                print(result.stdout, end="", flush=True)
-            if result.stderr:
-                print(result.stderr, end="", file=sys.stderr, flush=True)
+        if not suppress_output:
+            with output_lock:
+                if result.stdout:
+                    print(result.stdout, end="", flush=True)
+                if result.stderr:
+                    print(result.stderr, end="", file=sys.stderr, flush=True)
 
         return result.returncode
     except FileNotFoundError:
@@ -1790,9 +1832,22 @@ def suggest_tools() -> int:
     return 0
 
 
-def docker_run(args: List[str]) -> int:
-    """Run taidy in Docker container with all tools pre-installed"""
-    docker_image = "taidy:latest"
+def docker_run(
+    args: List[str],
+    pull_always: bool = False,
+    build_local: bool = False,
+    custom_image: Optional[str] = None,
+) -> int:
+    """Run taidy in Docker container with all tools pre-installed
+
+    Args:
+        args: Arguments to pass to taidy inside the container
+        pull_always: Always pull the latest image, even if exists locally
+        build_local: Build the image locally instead of pulling from registry
+        custom_image: Custom Docker image name/tag to use
+    """
+    # Use custom image or default to GitHub Container Registry image
+    docker_image = custom_image or "ghcr.io/singletoned/taidy:latest"
 
     # Check if Docker is available
     if not is_command_available("docker"):
@@ -1800,28 +1855,57 @@ def docker_run(args: List[str]) -> int:
         print("Please install Docker to use this feature.", file=sys.stderr)
         return 1
 
-    # Check if the Docker image exists, build it if not
+    # Handle image acquisition
     try:
-        result = subprocess.run(
-            ["docker", "image", "inspect", docker_image], capture_output=True, text=True
-        )
-        if result.returncode != 0:
-            print(f"🔨 Docker image '{docker_image}' not found. Building it now...")
-            print("This may take several minutes on first run...")
-
-            # Build the Docker image
+        # If building locally, use local Dockerfile
+        if build_local:
+            local_image = "taidy:latest"
+            print("🔨 Building Docker image locally from Dockerfile...")
+            print("This may take several minutes...")
             build_result = subprocess.run(
-                ["docker", "build", "-t", docker_image, "."], cwd=os.getcwd()
+                ["docker", "build", "-t", local_image, "."], cwd=os.getcwd()
             )
 
             if build_result.returncode != 0:
                 print("❌ Failed to build Docker image.", file=sys.stderr)
                 return 1
 
-            print(f"✅ Successfully built Docker image '{docker_image}'")
+            print(f"✅ Successfully built local image '{local_image}'")
+            docker_image = local_image
+        else:
+            # Check if image exists locally
+            inspect_result = subprocess.run(
+                ["docker", "image", "inspect", docker_image], capture_output=True, text=True
+            )
+            image_exists = inspect_result.returncode == 0
+
+            # Pull image if it doesn't exist or if pull_always is set
+            if not image_exists or pull_always:
+                action = "Pulling latest" if pull_always else "Downloading"
+                print(f"📥 {action} Docker image from GitHub Container Registry...")
+                print(f"Image: {docker_image}")
+                pull_result = subprocess.run(["docker", "pull", docker_image])
+
+                if pull_result.returncode != 0:
+                    print(f"❌ Failed to pull Docker image '{docker_image}'.", file=sys.stderr)
+                    print("\nYou can try:", file=sys.stderr)
+                    print(
+                        "  1. Run 'taidy docker --build-local .' to build locally", file=sys.stderr
+                    )
+                    print("  2. Check your internet connection", file=sys.stderr)
+                    print(
+                        "  3. Verify the image exists at "
+                        "https://github.com/Singletoned/tAIdy/pkgs/container/taidy",
+                        file=sys.stderr,
+                    )
+                    return 1
+
+                print(f"✅ Successfully pulled image '{docker_image}'")
+            else:
+                print(f"✓ Using cached Docker image '{docker_image}'")
 
     except Exception as e:
-        print(f"❌ Error checking Docker image: {e}", file=sys.stderr)
+        print(f"❌ Error preparing Docker image: {e}", file=sys.stderr)
         return 1
 
     # Get current working directory for mounting
@@ -1911,10 +1995,37 @@ def main() -> None:
         exit_code = suggest_tools()
         sys.exit(exit_code)
     elif filtered_args[0] == "docker":
-        if len(filtered_args) < 2:
+        # Parse docker-specific flags
+        docker_args = filtered_args[1:]
+        pull_always = False
+        build_local = False
+        custom_image = None
+        taidy_args = []
+
+        i = 0
+        while i < len(docker_args):
+            arg = docker_args[i]
+            if arg == "--pull-always":
+                pull_always = True
+            elif arg == "--build-local":
+                build_local = True
+            elif arg == "--image":
+                if i + 1 >= len(docker_args):
+                    print("❌ --image flag requires an argument", file=sys.stderr)
+                    sys.exit(1)
+                custom_image = docker_args[i + 1]
+                i += 1  # Skip the next arg
+            else:
+                taidy_args.append(arg)
+            i += 1
+
+        if len(taidy_args) < 1:
             show_usage()
             sys.exit(1)
-        exit_code = docker_run(filtered_args[1:])
+
+        exit_code = docker_run(
+            taidy_args, pull_always=pull_always, build_local=build_local, custom_image=custom_image
+        )
         sys.exit(exit_code)
     else:
         # No subcommand, treat first arg as file

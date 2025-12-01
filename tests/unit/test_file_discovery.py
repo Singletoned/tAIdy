@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Unit tests for file discovery functions."""
 
-import unittest
-from unittest.mock import patch, MagicMock, mock_open
-from pathlib import Path
-import sys
 import os
+import sys
+import unittest
+from pathlib import Path
+from unittest.mock import MagicMock, patch
 
 # Add the parent directory to the path to import taidy
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))

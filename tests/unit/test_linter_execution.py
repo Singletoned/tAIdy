@@ -1,16 +1,21 @@
 #!/usr/bin/env python3
 """Unit tests for linter execution logic."""
 
-import unittest
-from unittest.mock import patch, MagicMock, call
-import subprocess
-import sys
+import logging
 import os
+import sys
+import unittest
+from unittest.mock import MagicMock, patch
 
 # Add the parent directory to the path to import taidy
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
 
-from taidy.cli import execute_batched_command, execute_linters, LinterCommand
+from taidy.cli import (
+    LinterCommand,
+    _get_trufflehog_command,
+    execute_batched_command,
+    execute_linters,
+)
 
 
 class TestExecuteBatchedCommand(unittest.TestCase):
@@ -170,6 +175,27 @@ class TestExecuteBatchedCommand(unittest.TestCase):
             text=True,
             env=os.environ
         )
+
+    @patch('builtins.print')
+    @patch('subprocess.run')
+    @patch('taidy.cli.logger')
+    def test_execute_batched_command_trufflehog_quiet_on_success(
+        self, mock_logger, mock_subprocess, mock_print
+    ):
+        """Trufflehog should be quiet on clean scans by default."""
+        mock_result = MagicMock()
+        mock_result.returncode = 0
+        mock_result.stdout = "banner output\n"
+        mock_result.stderr = ""
+        mock_subprocess.return_value = mock_result
+        mock_logger.getEffectiveLevel.return_value = logging.WARNING
+
+        cmd_signature = ("trufflehog", ("filesystem", "--no-update", "--fail", "--log-level=-1"))
+        file_list = ["file1.py"]
+
+        execute_batched_command(cmd_signature, file_list)
+
+        mock_print.assert_not_called()
 
     @patch('subprocess.run')
     @patch('taidy.cli.logger')
@@ -422,6 +448,31 @@ class TestExecuteLinters(unittest.TestCase):
             text=True,
             env=expected_env
         )
+
+
+class TestTrufflehogCommand(unittest.TestCase):
+    """Test trufflehog command construction."""
+
+    @patch('taidy.cli.is_git_repository', return_value=False)
+    @patch('taidy.cli.logger')
+    def test_trufflehog_quiet_log_level_by_default(self, mock_logger, mock_is_git_repository):
+        """Default runs should use quiet trufflehog logging."""
+        mock_logger.getEffectiveLevel.return_value = logging.WARNING
+
+        cmd, args = _get_trufflehog_command(["sample.py"])
+
+        self.assertEqual(cmd, "trufflehog")
+        self.assertIn("--log-level=-1", args)
+
+    @patch('taidy.cli.is_git_repository', return_value=False)
+    @patch('taidy.cli.logger')
+    def test_trufflehog_respects_verbose_logging(self, mock_logger, mock_is_git_repository):
+        """Verbose runs should allow more chatty trufflehog logs."""
+        mock_logger.getEffectiveLevel.return_value = logging.INFO
+
+        _, args = _get_trufflehog_command(["sample.py"])
+
+        self.assertIn("--log-level=0", args)
 
 
 if __name__ == '__main__':

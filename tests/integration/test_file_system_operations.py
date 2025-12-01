@@ -1,11 +1,11 @@
 #!/usr/bin/env python3
 """Integration tests for file system operations with real files."""
 
-import unittest
-import tempfile
-import shutil
 import os
+import shutil
 import sys
+import tempfile
+import unittest
 from pathlib import Path
 
 # Add the parent directory to the path to import taidy
@@ -78,7 +78,7 @@ class TestFileSystemOperationsIntegration(unittest.TestCase):
         os.chdir(self.test_dir)
         
         discovered_files = discover_files_in_directory(".")
-        discovered_set = set(discovered_files)
+        set(discovered_files)
 
         # Should find supported files
         expected_found = [
