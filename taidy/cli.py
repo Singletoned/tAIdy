@@ -486,7 +486,7 @@ def _get_trufflehog_command(files: List[str]) -> Tuple[str, List[str]]:
     if is_git_repository(current_dir):
         # Use git mode with max-depth=1 to scan current state while respecting gitignore
         # Use file:// URI for local git repository
-        git_uri = f"file://{current_dir.absolute()}"
+        git_uri = current_dir.resolve().as_uri()
         return (
             "trufflehog",
             [
