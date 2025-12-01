@@ -5,10 +5,11 @@ import logging
 import os
 import sys
 import unittest
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 # Add the parent directory to the path to import taidy
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 from taidy.cli import (
     LinterCommand,
@@ -21,8 +22,8 @@ from taidy.cli import (
 class TestExecuteBatchedCommand(unittest.TestCase):
     """Test batched command execution functionality."""
 
-    @patch('subprocess.run')
-    @patch('taidy.cli.logger')
+    @patch("subprocess.run")
+    @patch("taidy.cli.logger")
     def test_execute_batched_command_success(self, mock_logger, mock_subprocess):
         """Test successful batched command execution."""
         # Mock successful subprocess execution
@@ -40,17 +41,17 @@ class TestExecuteBatchedCommand(unittest.TestCase):
 
         # Should return success
         self.assertEqual(result, 0)
-        
+
         # Should call subprocess with correct arguments
         mock_subprocess.assert_called_once_with(
             ["ruff", "check", "--quiet", "file1.py", "file2.py"],
             capture_output=True,
             text=True,
-            env=os.environ
+            env=os.environ,
         )
 
-    @patch('subprocess.run')
-    @patch('taidy.cli.logger')
+    @patch("subprocess.run")
+    @patch("taidy.cli.logger")
     def test_execute_batched_command_failure(self, mock_logger, mock_subprocess):
         """Test failed batched command execution."""
         # Mock failed subprocess execution
@@ -68,8 +69,8 @@ class TestExecuteBatchedCommand(unittest.TestCase):
         # Should return error code
         self.assertEqual(result, 1)
 
-    @patch('subprocess.run')
-    @patch('taidy.cli.logger')
+    @patch("subprocess.run")
+    @patch("taidy.cli.logger")
     def test_execute_batched_command_not_found(self, mock_logger, mock_subprocess):
         """Test command not found scenario."""
         # Mock FileNotFoundError
@@ -82,12 +83,12 @@ class TestExecuteBatchedCommand(unittest.TestCase):
 
         # Should return command not found exit code
         self.assertEqual(result, 127)
-        
+
         # Should log error
         mock_logger.error.assert_called_once()
 
-    @patch('subprocess.run')
-    @patch('taidy.cli.logger')
+    @patch("subprocess.run")
+    @patch("taidy.cli.logger")
     def test_execute_batched_command_exception(self, mock_logger, mock_subprocess):
         """Test general exception handling."""
         # Mock general exception
@@ -100,12 +101,12 @@ class TestExecuteBatchedCommand(unittest.TestCase):
 
         # Should return general error code
         self.assertEqual(result, 1)
-        
+
         # Should log error
         mock_logger.error.assert_called_once()
 
-    @patch('subprocess.run')
-    @patch('taidy.cli.logger')
+    @patch("subprocess.run")
+    @patch("taidy.cli.logger")
     def test_execute_batched_command_deduplication(self, mock_logger, mock_subprocess):
         """Test file deduplication in batched commands."""
         mock_result = MagicMock()
@@ -125,11 +126,11 @@ class TestExecuteBatchedCommand(unittest.TestCase):
             ["prettier", "--write", "file1.js", "file2.js", "file3.js"],
             capture_output=True,
             text=True,
-            env=os.environ
+            env=os.environ,
         )
 
-    @patch('subprocess.run')
-    @patch('taidy.cli.logger')
+    @patch("subprocess.run")
+    @patch("taidy.cli.logger")
     def test_execute_batched_command_just_fmt_special(self, mock_logger, mock_subprocess):
         """Test special handling for 'just --fmt' command."""
         mock_result = MagicMock()
@@ -146,14 +147,11 @@ class TestExecuteBatchedCommand(unittest.TestCase):
 
         # Should call without file arguments
         mock_subprocess.assert_called_once_with(
-            ["just", "--fmt", "--check"],
-            capture_output=True,
-            text=True,
-            env=os.environ
+            ["just", "--fmt", "--check"], capture_output=True, text=True, env=os.environ
         )
 
-    @patch('subprocess.run')
-    @patch('taidy.cli.logger')
+    @patch("subprocess.run")
+    @patch("taidy.cli.logger")
     def test_execute_batched_command_trufflehog_git_special(self, mock_logger, mock_subprocess):
         """Test special handling for 'trufflehog git' command."""
         mock_result = MagicMock()
@@ -173,12 +171,12 @@ class TestExecuteBatchedCommand(unittest.TestCase):
             ["trufflehog", "git", "--no-update", "file://"],
             capture_output=True,
             text=True,
-            env=os.environ
+            env=os.environ,
         )
 
-    @patch('builtins.print')
-    @patch('subprocess.run')
-    @patch('taidy.cli.logger')
+    @patch("builtins.print")
+    @patch("subprocess.run")
+    @patch("taidy.cli.logger")
     def test_execute_batched_command_trufflehog_quiet_on_success(
         self, mock_logger, mock_subprocess, mock_print
     ):
@@ -197,8 +195,29 @@ class TestExecuteBatchedCommand(unittest.TestCase):
 
         mock_print.assert_not_called()
 
-    @patch('subprocess.run')
-    @patch('taidy.cli.logger')
+    @patch("builtins.print")
+    @patch("subprocess.run")
+    @patch("taidy.cli.logger")
+    def test_execute_batched_command_trufflehog_strips_banner_on_findings(
+        self, mock_logger, mock_subprocess, mock_print
+    ):
+        """Trufflehog banner should be removed while keeping findings."""
+        mock_result = MagicMock()
+        mock_result.returncode = 183
+        mock_result.stdout = "🐷🔑🐷  TruffleHog. Unearth your secrets. 🐷🔑🐷\nFinding line\n"
+        mock_result.stderr = ""
+        mock_subprocess.return_value = mock_result
+        mock_logger.getEffectiveLevel.return_value = logging.WARNING
+
+        cmd_signature = ("trufflehog", ("filesystem", "--no-update", "--fail", "--log-level=-1"))
+        file_list = ["file1.py"]
+
+        execute_batched_command(cmd_signature, file_list)
+
+        mock_print.assert_any_call("Finding line\n", end="", flush=True)
+
+    @patch("subprocess.run")
+    @patch("taidy.cli.logger")
     def test_execute_batched_command_taplo_environment(self, mock_logger, mock_subprocess):
         """Test special environment variable for taplo command."""
         mock_result = MagicMock()
@@ -215,20 +234,17 @@ class TestExecuteBatchedCommand(unittest.TestCase):
         # Should set RUST_LOG environment variable
         expected_env = os.environ.copy()
         expected_env["RUST_LOG"] = "warn"
-        
+
         mock_subprocess.assert_called_once_with(
-            ["taplo", "format", "config.toml"],
-            capture_output=True,
-            text=True,
-            env=expected_env
+            ["taplo", "format", "config.toml"], capture_output=True, text=True, env=expected_env
         )
 
 
 class TestExecuteLinters(unittest.TestCase):
     """Test linter execution with command fallback."""
 
-    @patch('subprocess.run')
-    @patch('taidy.cli.logger')
+    @patch("subprocess.run")
+    @patch("taidy.cli.logger")
     def test_execute_linters_first_available(self, mock_logger, mock_subprocess):
         """Test execution when first command is available."""
         mock_result = MagicMock()
@@ -241,12 +257,12 @@ class TestExecuteLinters(unittest.TestCase):
         linter1 = LinterCommand(
             available=lambda: True,  # First command available
             command=lambda files: ("ruff", ["check"] + files),
-            supports_directories=True
+            supports_directories=True,
         )
         linter2 = LinterCommand(
             available=lambda: True,  # Second command also available but shouldn't be used
             command=lambda files: ("flake8", files),
-            supports_directories=False
+            supports_directories=False,
         )
 
         commands = [linter1, linter2]
@@ -256,17 +272,14 @@ class TestExecuteLinters(unittest.TestCase):
 
         # Should return success
         self.assertEqual(result, 0)
-        
+
         # Should use first available command
         mock_subprocess.assert_called_once_with(
-            ["ruff", "check", "test.py"],
-            capture_output=True,
-            text=True,
-            env=os.environ
+            ["ruff", "check", "test.py"], capture_output=True, text=True, env=os.environ
         )
 
-    @patch('subprocess.run')
-    @patch('taidy.cli.logger')
+    @patch("subprocess.run")
+    @patch("taidy.cli.logger")
     def test_execute_linters_fallback(self, mock_logger, mock_subprocess):
         """Test execution falls back to second command when first is unavailable."""
         mock_result = MagicMock()
@@ -279,12 +292,12 @@ class TestExecuteLinters(unittest.TestCase):
         linter1 = LinterCommand(
             available=lambda: False,  # First command unavailable
             command=lambda files: ("ruff", ["check"] + files),
-            supports_directories=True
+            supports_directories=True,
         )
         linter2 = LinterCommand(
-            available=lambda: True,   # Second command available
+            available=lambda: True,  # Second command available
             command=lambda files: ("flake8", files),
-            supports_directories=False
+            supports_directories=False,
         )
 
         commands = [linter1, linter2]
@@ -294,29 +307,26 @@ class TestExecuteLinters(unittest.TestCase):
 
         # Should return success
         self.assertEqual(result, 0)
-        
+
         # Should use second command
         mock_subprocess.assert_called_once_with(
-            ["flake8", "test.py"],
-            capture_output=True,
-            text=True,
-            env=os.environ
+            ["flake8", "test.py"], capture_output=True, text=True, env=os.environ
         )
 
-    @patch('subprocess.run')
-    @patch('taidy.cli.logger')
+    @patch("subprocess.run")
+    @patch("taidy.cli.logger")
     def test_execute_linters_no_available_commands(self, mock_logger, mock_subprocess):
         """Test when no commands are available."""
         # Create mock linter commands - all unavailable
         linter1 = LinterCommand(
             available=lambda: False,
             command=lambda files: ("ruff", ["check"] + files),
-            supports_directories=True
+            supports_directories=True,
         )
         linter2 = LinterCommand(
             available=lambda: False,
             command=lambda files: ("flake8", files),
-            supports_directories=False
+            supports_directories=False,
         )
 
         commands = [linter1, linter2]
@@ -326,12 +336,12 @@ class TestExecuteLinters(unittest.TestCase):
 
         # Should return "no available command" code
         self.assertEqual(result, 2)
-        
+
         # Should not call subprocess
         mock_subprocess.assert_not_called()
 
-    @patch('subprocess.run')
-    @patch('taidy.cli.logger')
+    @patch("subprocess.run")
+    @patch("taidy.cli.logger")
     def test_execute_linters_command_failure(self, mock_logger, mock_subprocess):
         """Test when available command fails."""
         mock_result = MagicMock()
@@ -343,7 +353,7 @@ class TestExecuteLinters(unittest.TestCase):
         linter = LinterCommand(
             available=lambda: True,
             command=lambda files: ("pylint", files),
-            supports_directories=False
+            supports_directories=False,
         )
 
         commands = [linter]
@@ -354,8 +364,8 @@ class TestExecuteLinters(unittest.TestCase):
         # Should return the command's exit code
         self.assertEqual(result, 1)
 
-    @patch('subprocess.run')
-    @patch('taidy.cli.logger')
+    @patch("subprocess.run")
+    @patch("taidy.cli.logger")
     def test_execute_linters_command_not_found(self, mock_logger, mock_subprocess):
         """Test when available command is not actually found at execution."""
         # Mock FileNotFoundError during execution
@@ -364,7 +374,7 @@ class TestExecuteLinters(unittest.TestCase):
         linter = LinterCommand(
             available=lambda: True,  # Claims to be available but isn't
             command=lambda files: ("fake_linter", files),
-            supports_directories=False
+            supports_directories=False,
         )
 
         commands = [linter]
@@ -374,12 +384,12 @@ class TestExecuteLinters(unittest.TestCase):
 
         # Should return command not found exit code
         self.assertEqual(result, 127)
-        
+
         # Should log error
         mock_logger.error.assert_called_once()
 
-    @patch('subprocess.run')
-    @patch('taidy.cli.logger')
+    @patch("subprocess.run")
+    @patch("taidy.cli.logger")
     def test_execute_linters_general_exception(self, mock_logger, mock_subprocess):
         """Test general exception handling during command execution."""
         # Mock general exception
@@ -388,7 +398,7 @@ class TestExecuteLinters(unittest.TestCase):
         linter = LinterCommand(
             available=lambda: True,
             command=lambda files: ("linter", files),
-            supports_directories=False
+            supports_directories=False,
         )
 
         commands = [linter]
@@ -398,12 +408,12 @@ class TestExecuteLinters(unittest.TestCase):
 
         # Should return general error code
         self.assertEqual(result, 1)
-        
+
         # Should log error
         mock_logger.error.assert_called_once()
 
-    @patch('subprocess.run')
-    @patch('taidy.cli.logger')
+    @patch("subprocess.run")
+    @patch("taidy.cli.logger")
     def test_execute_linters_empty_command_list(self, mock_logger, mock_subprocess):
         """Test execution with empty command list."""
         commands = []
@@ -413,12 +423,12 @@ class TestExecuteLinters(unittest.TestCase):
 
         # Should return "no available command" code
         self.assertEqual(result, 2)
-        
+
         # Should not call subprocess
         mock_subprocess.assert_not_called()
 
-    @patch('subprocess.run')
-    @patch('taidy.cli.logger')
+    @patch("subprocess.run")
+    @patch("taidy.cli.logger")
     def test_execute_linters_taplo_environment(self, mock_logger, mock_subprocess):
         """Test special environment handling for taplo in execute_linters."""
         mock_result = MagicMock()
@@ -430,7 +440,7 @@ class TestExecuteLinters(unittest.TestCase):
         linter = LinterCommand(
             available=lambda: True,
             command=lambda files: ("taplo", ["check"] + files),
-            supports_directories=False
+            supports_directories=False,
         )
 
         commands = [linter]
@@ -441,20 +451,17 @@ class TestExecuteLinters(unittest.TestCase):
         # Should set RUST_LOG environment variable
         expected_env = os.environ.copy()
         expected_env["RUST_LOG"] = "warn"
-        
+
         mock_subprocess.assert_called_once_with(
-            ["taplo", "check", "config.toml"],
-            capture_output=True,
-            text=True,
-            env=expected_env
+            ["taplo", "check", "config.toml"], capture_output=True, text=True, env=expected_env
         )
 
 
 class TestTrufflehogCommand(unittest.TestCase):
     """Test trufflehog command construction."""
 
-    @patch('taidy.cli.is_git_repository', return_value=False)
-    @patch('taidy.cli.logger')
+    @patch("taidy.cli.is_git_repository", return_value=False)
+    @patch("taidy.cli.logger")
     def test_trufflehog_quiet_log_level_by_default(self, mock_logger, mock_is_git_repository):
         """Default runs should use quiet trufflehog logging."""
         mock_logger.getEffectiveLevel.return_value = logging.WARNING
@@ -464,8 +471,8 @@ class TestTrufflehogCommand(unittest.TestCase):
         self.assertEqual(cmd, "trufflehog")
         self.assertIn("--log-level=-1", args)
 
-    @patch('taidy.cli.is_git_repository', return_value=False)
-    @patch('taidy.cli.logger')
+    @patch("taidy.cli.is_git_repository", return_value=False)
+    @patch("taidy.cli.logger")
     def test_trufflehog_respects_verbose_logging(self, mock_logger, mock_is_git_repository):
         """Verbose runs should allow more chatty trufflehog logs."""
         mock_logger.getEffectiveLevel.return_value = logging.INFO
@@ -474,6 +481,19 @@ class TestTrufflehogCommand(unittest.TestCase):
 
         self.assertIn("--log-level=0", args)
 
+    @patch("taidy.cli.Path.cwd", return_value=Path("/path/with space/repo"))
+    @patch("taidy.cli.is_git_repository", return_value=True)
+    @patch("taidy.cli.logger")
+    def test_trufflehog_git_uses_encoded_uri(self, mock_logger, mock_is_git_repository, mock_cwd):
+        """Git mode should use a properly encoded file URI even with spaces."""
+        mock_logger.getEffectiveLevel.return_value = logging.WARNING
 
-if __name__ == '__main__':
+        cmd, args = _get_trufflehog_command(["sample.py"])
+
+        self.assertEqual(cmd, "trufflehog")
+        self.assertEqual(args[0], "git")
+        self.assertEqual(args[-1], Path("/path/with space/repo").resolve().as_uri())
+
+
+if __name__ == "__main__":
     unittest.main()

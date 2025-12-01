@@ -10,7 +10,7 @@ import unittest
 from pathlib import Path
 
 # Add the parent directory to the path to import taidy
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 from taidy.cli import discover_files_in_directory, load_config, should_ignore_file
 
@@ -31,11 +31,9 @@ class TestConfigurationSystemIntegration(unittest.TestCase):
     def test_load_config_valid_json_file(self):
         """Test loading a valid JSON configuration file."""
         # Create config file
-        config_data = {
-            "ignore": ["*.tmp", "build/*", "node_modules"]
-        }
+        config_data = {"ignore": ["*.tmp", "build/*", "node_modules"]}
         config_file = self.test_dir / ".taidy.json"
-        with open(config_file, 'w') as f:
+        with open(config_file, "w") as f:
             json.dump(config_data, f, indent=2)
 
         # Change to test directory and load config
@@ -48,7 +46,7 @@ class TestConfigurationSystemIntegration(unittest.TestCase):
         """Test loading an invalid JSON configuration file."""
         # Create invalid JSON file
         config_file = self.test_dir / ".taidy.json"
-        with open(config_file, 'w') as f:
+        with open(config_file, "w") as f:
             f.write('{"ignore": ["*.tmp",}')  # Missing closing bracket
 
         # Change to test directory and load config
@@ -76,7 +74,7 @@ class TestConfigurationSystemIntegration(unittest.TestCase):
         # Create config file in project root
         config_data = {"ignore": ["*.test"]}
         config_file = self.test_dir / "project" / ".taidy.json"
-        with open(config_file, 'w') as f:
+        with open(config_file, "w") as f:
             json.dump(config_data, f)
 
         # Load config from nested directory
@@ -98,9 +96,9 @@ class TestConfigurationSystemIntegration(unittest.TestCase):
         parent_config_file = self.test_dir / "project" / ".taidy.json"
         child_config_file = nested_dir / ".taidy.json"
 
-        with open(parent_config_file, 'w') as f:
+        with open(parent_config_file, "w") as f:
             json.dump(parent_config, f)
-        with open(child_config_file, 'w') as f:
+        with open(child_config_file, "w") as f:
             json.dump(child_config, f)
 
         # Load config from nested directory - should get child config
@@ -123,12 +121,12 @@ class TestConfigurationSystemIntegration(unittest.TestCase):
 
     def test_load_config_permission_error(self):
         """Test handling of permission errors when reading config file."""
-        if os.name == 'nt':  # Skip on Windows due to different permission model
+        if os.name == "nt":  # Skip on Windows due to different permission model
             self.skipTest("Permission test not applicable on Windows")
 
         # Create config file and remove read permissions
         config_file = self.test_dir / ".taidy.json"
-        with open(config_file, 'w') as f:
+        with open(config_file, "w") as f:
             json.dump({"ignore": ["test"]}, f)
 
         # Remove read permissions
@@ -174,7 +172,9 @@ class TestIgnorePatternsIntegration(unittest.TestCase):
 
         # Files that should be ignored
         self.assertTrue(should_ignore_file(self.test_dir / "temp.tmp", patterns))
-        self.assertTrue(should_ignore_file(self.test_dir / "build" / "output.js", patterns))  # Should ignore because "build" is in path parts
+        self.assertTrue(
+            should_ignore_file(self.test_dir / "build" / "output.js", patterns)
+        )  # Should ignore because "build" is in path parts
         self.assertTrue(should_ignore_file(self.test_dir / "node_modules", patterns))
         self.assertTrue(should_ignore_file(self.test_dir / "node_modules" / "package.js", patterns))
 
@@ -197,14 +197,16 @@ class TestIgnorePatternsIntegration(unittest.TestCase):
         patterns = ["**/__pycache__/**", "*.egg-info", "dist"]
 
         # Should be ignored
-        self.assertTrue(should_ignore_file(
-            self.test_dir / "src" / "__pycache__" / "main.cpython-39.pyc", 
-            patterns
-        ))
-        self.assertTrue(should_ignore_file(
-            self.test_dir / "tests" / "__pycache__" / "test.cpython-39.pyc", 
-            patterns
-        ))
+        self.assertTrue(
+            should_ignore_file(
+                self.test_dir / "src" / "__pycache__" / "main.cpython-39.pyc", patterns
+            )
+        )
+        self.assertTrue(
+            should_ignore_file(
+                self.test_dir / "tests" / "__pycache__" / "test.cpython-39.pyc", patterns
+            )
+        )
         self.assertTrue(should_ignore_file(self.test_dir / "project.egg-info", patterns))
         self.assertTrue(should_ignore_file(self.test_dir / "dist", patterns))
 
@@ -239,7 +241,7 @@ class TestConfigurationIntegrationWithDiscovery(unittest.TestCase):
         # Create config to ignore build and *.tmp
         config_data = {"ignore": ["build", "*.tmp"]}
         config_file = self.test_dir / ".taidy.json"
-        with open(config_file, 'w') as f:
+        with open(config_file, "w") as f:
             json.dump(config_data, f)
 
         # Change to test directory and discover files
@@ -248,7 +250,7 @@ class TestConfigurationIntegrationWithDiscovery(unittest.TestCase):
 
         # Should find Python files but exclude ignored ones
         set(discovered_files)
-        
+
         # These should be found
         self.assertTrue(any("main.py" in f for f in discovered_files))
         self.assertTrue(any("test_main.py" in f for f in discovered_files))
@@ -301,5 +303,5 @@ class TestConfigurationIntegrationWithDiscovery(unittest.TestCase):
         self.assertTrue(any("styles.css" in f for f in discovered_files))
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()

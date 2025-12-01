@@ -9,7 +9,7 @@ import unittest
 from pathlib import Path
 
 # Add the parent directory to the path to import taidy
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 from taidy.cli import discover_files_in_directory
 
@@ -31,8 +31,14 @@ class TestFileSystemOperationsIntegration(unittest.TestCase):
         """Create a realistic test file structure."""
         # Create directories
         directories = [
-            "src", "tests", "docs", ".github/workflows",
-            "node_modules", "__pycache__", "dist", "build"
+            "src",
+            "tests",
+            "docs",
+            ".github/workflows",
+            "node_modules",
+            "__pycache__",
+            "dist",
+            "build",
         ]
         for dir_path in directories:
             (self.test_dir / dir_path).mkdir(parents=True, exist_ok=True)
@@ -49,13 +55,11 @@ class TestFileSystemOperationsIntegration(unittest.TestCase):
             "Justfile": "default:\n\techo 'Hello from Just'\n",
             ".gitignore": "*.pyc\n__pycache__/\n",
             "package.json": '{"name": "test-project"}\n',
-            
             # Files that should be ignored by default
             "node_modules/package/index.js": "module.exports = {};\n",
             "__pycache__/main.cpython-39.pyc": "binary data",
             "dist/bundle.js": "// minified code\n",
             "build/output.css": "/* compiled styles */\n",
-            
             # Various extensions
             "config.toml": "[tool.test]\nkey = 'value'\n",
             "data.yaml": "key: value\n",
@@ -69,28 +73,41 @@ class TestFileSystemOperationsIntegration(unittest.TestCase):
         for file_path, content in files.items():
             full_path = self.test_dir / file_path
             full_path.parent.mkdir(parents=True, exist_ok=True)
-            with open(full_path, 'w') as f:
+            with open(full_path, "w") as f:
                 f.write(content)
 
     def test_discover_files_comprehensive_structure(self):
         """Test file discovery with comprehensive directory structure."""
         self.create_test_file_structure()
         os.chdir(self.test_dir)
-        
+
         discovered_files = discover_files_in_directory(".")
         set(discovered_files)
 
         # Should find supported files
         expected_found = [
-            "main.py", "utils.js", "styles.css", "test_main.py",
-            "sample.json", "README.md", "ci.yml", "Justfile",
-            "package.json", "config.toml", "data.yaml", "script.sh",
-            "app.go", "component.rs", "template.html"
+            "main.py",
+            "utils.js",
+            "styles.css",
+            "test_main.py",
+            "sample.json",
+            "README.md",
+            "ci.yml",
+            "Justfile",
+            "package.json",
+            "config.toml",
+            "data.yaml",
+            "script.sh",
+            "app.go",
+            "component.rs",
+            "template.html",
         ]
 
         for expected in expected_found:
             found = any(expected in f for f in discovered_files)
-            self.assertTrue(found, f"Should have found file containing '{expected}' in {discovered_files}")
+            self.assertTrue(
+                found, f"Should have found file containing '{expected}' in {discovered_files}"
+            )
 
         # Should ignore files in default ignored directories
         ignored_patterns = ["node_modules", "__pycache__", "dist", "build"]
@@ -110,11 +127,11 @@ class TestFileSystemOperationsIntegration(unittest.TestCase):
             self.test_dir / "level1" / "l1.py",
             self.test_dir / "level1" / "level2" / "l2.js",
             self.test_dir / "level1" / "level2" / "level3" / "l3.css",
-            deep_path / "deep.py"
+            deep_path / "deep.py",
         ]
 
         for file_path in files:
-            with open(file_path, 'w') as f:
+            with open(file_path, "w") as f:
                 f.write(f"// Content of {file_path.name}\n")
 
         os.chdir(self.test_dir)
@@ -122,7 +139,7 @@ class TestFileSystemOperationsIntegration(unittest.TestCase):
 
         # Should find all files regardless of depth
         self.assertEqual(len(discovered_files), 5)
-        
+
         # Check specific files
         file_names = ["root.py", "l1.py", "l2.js", "l3.css", "deep.py"]
         for name in file_names:
@@ -161,7 +178,7 @@ class TestFileSystemOperationsIntegration(unittest.TestCase):
 
         for filename, filetype in files:
             file_path = self.test_dir / filename
-            with open(file_path, 'w') as f:
+            with open(file_path, "w") as f:
                 f.write(f"// {filetype} file\n")
 
         os.chdir(self.test_dir)
@@ -170,7 +187,7 @@ class TestFileSystemOperationsIntegration(unittest.TestCase):
         # Should find all files regardless of case
         # Note: behavior may depend on case sensitivity of file system
         self.assertGreater(len(discovered_files), 0)
-        
+
         # At minimum should find some Python files
         python_files = [f for f in discovered_files if ".py" in f.lower()]
         self.assertGreater(len(python_files), 0)
@@ -191,7 +208,7 @@ class TestFileSystemOperationsIntegration(unittest.TestCase):
         for filename in special_files:
             try:
                 file_path = self.test_dir / filename
-                with open(file_path, 'w') as f:
+                with open(file_path, "w") as f:
                     f.write("// test content\n")
                 created_files.append(filename)
             except OSError:
@@ -211,11 +228,11 @@ class TestFileSystemOperationsIntegration(unittest.TestCase):
         """Test file discovery performance with many files."""
         # Create a directory with many files
         (self.test_dir / "many_files").mkdir()
-        
+
         # Create 100 Python files
         for i in range(100):
             file_path = self.test_dir / "many_files" / f"file_{i:03d}.py"
-            with open(file_path, 'w') as f:
+            with open(file_path, "w") as f:
                 f.write(f"# File number {i}\n")
 
         os.chdir(self.test_dir)
@@ -229,12 +246,12 @@ class TestFileSystemOperationsIntegration(unittest.TestCase):
 
     def test_discover_files_symlinks(self):
         """Test file discovery with symbolic links (if supported)."""
-        if os.name == 'nt':
+        if os.name == "nt":
             self.skipTest("Symlink test not applicable on Windows")
 
         # Create regular file
         regular_file = self.test_dir / "regular.py"
-        with open(regular_file, 'w') as f:
+        with open(regular_file, "w") as f:
             f.write("# Regular file\n")
 
         # Create symlink to file
@@ -247,7 +264,7 @@ class TestFileSystemOperationsIntegration(unittest.TestCase):
         # Create directory and symlink to directory
         (self.test_dir / "real_dir").mkdir()
         (self.test_dir / "real_dir" / "inside.py").touch()
-        
+
         symlink_dir = self.test_dir / "symlink_dir"
         try:
             os.symlink(self.test_dir / "real_dir", symlink_dir)
@@ -264,7 +281,7 @@ class TestFileSystemOperationsIntegration(unittest.TestCase):
 
     def test_discover_files_permission_handling(self):
         """Test file discovery with permission restrictions."""
-        if os.name == 'nt':
+        if os.name == "nt":
             self.skipTest("Permission test not applicable on Windows")
 
         # Create files with different permissions
@@ -306,7 +323,7 @@ class TestSpecialFileHandling(unittest.TestCase):
         """Test discovery of Justfile (file without extension)."""
         # Create Justfile
         justfile = self.test_dir / "Justfile"
-        with open(justfile, 'w') as f:
+        with open(justfile, "w") as f:
             f.write("default:\n\techo 'Hello'\n")
 
         os.chdir(self.test_dir)
@@ -342,10 +359,10 @@ class TestSpecialFileHandling(unittest.TestCase):
         """Test discovery of files without extensions."""
         # Create various files without extensions
         files_without_ext = ["Makefile", "Dockerfile", "LICENSE", "AUTHORS"]
-        
+
         for filename in files_without_ext:
             file_path = self.test_dir / filename
-            with open(file_path, 'w') as f:
+            with open(file_path, "w") as f:
                 f.write(f"Content of {filename}\n")
 
         os.chdir(self.test_dir)
@@ -356,5 +373,5 @@ class TestSpecialFileHandling(unittest.TestCase):
         self.assertIsInstance(discovered_files, list)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     unittest.main()
