@@ -459,6 +459,23 @@ def _get_trufflehog_log_level() -> str:
     return "-1"
 
 
+def _strip_trufflehog_banner(output: str) -> str:
+    """Remove the banner line from trufflehog output."""
+    if not output:
+        return output
+
+    banner_text = "TruffleHog. Unearth your secrets."
+    filtered_lines = [line for line in output.splitlines() if banner_text not in line]
+
+    if not filtered_lines:
+        return ""
+
+    joined = "\n".join(filtered_lines)
+    if output.endswith("\n"):
+        return joined + "\n"
+    return joined
+
+
 def _get_trufflehog_command(files: List[str]) -> Tuple[str, List[str]]:
     """Get the appropriate trufflehog command based on git repository status."""
     log_level = _get_trufflehog_log_level()
@@ -1176,18 +1193,23 @@ def execute_batched_command(
         result = subprocess.run([cmd] + args, capture_output=True, text=True, env=env)
 
         suppress_output = (
-            cmd == "trufflehog"
-            and result.returncode == 0
-            and _get_logger_level() > logging.INFO
+            cmd == "trufflehog" and result.returncode == 0 and _get_logger_level() > logging.INFO
         )
+
+        stdout = result.stdout
+        stderr = result.stderr
+
+        if cmd == "trufflehog" and not suppress_output and _get_logger_level() > logging.INFO:
+            stdout = _strip_trufflehog_banner(stdout)
+            stderr = _strip_trufflehog_banner(stderr)
 
         # Print output atomically to avoid mixing
         if not suppress_output:
             with output_lock:
-                if result.stdout:
-                    print(result.stdout, end="", flush=True)
-                if result.stderr:
-                    print(result.stderr, end="", file=sys.stderr, flush=True)
+                if stdout:
+                    print(stdout, end="", flush=True)
+                if stderr:
+                    print(stderr, end="", file=sys.stderr, flush=True)
 
         return result.returncode
     except FileNotFoundError:
