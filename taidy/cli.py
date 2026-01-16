@@ -71,6 +71,7 @@ SUPPORTED_LANGUAGES_TEXT = """Supported file types and linters:
   YAML:         yamllint → prettier
   TOML:         taplo check → taplo format
   Terraform:    terraform validate/tflint → terraform fmt
+  Makefile:     mbake format
   Justfile:     just --fmt --check → just --fmt
   GitHub Actions: actionlint → yamllint → prettier (.github/workflows/*.yml)
   Security:     trufflehog (scans for secrets across all file types)
@@ -91,6 +92,61 @@ CONFIGURATION_TEXT = """Configuration:
 
 # Configure logging
 logger = logging.getLogger(__name__)
+
+JUSTFILE_NAMES: Set[str] = {"justfile", "justfile.just"}
+MAKEFILE_NAMES: Set[str] = {"makefile", "gnumakefile"}
+
+# Extensions that are inherently unlintable/unformattable (binary/opaque assets)
+ALWAYS_UNFORMATTABLE_EXTENSIONS: Set[str] = {
+    ".txt",
+    ".log",
+    ".exe",
+    ".dll",
+    ".so",
+    ".dylib",
+    ".class",
+    ".o",
+    ".obj",
+    ".wasm",
+    ".zip",
+    ".tar",
+    ".gz",
+    ".tgz",
+    ".rar",
+    ".7z",
+    ".dmg",
+    ".iso",
+    ".png",
+    ".jpg",
+    ".jpeg",
+    ".gif",
+    ".webp",
+    ".svg",
+    ".ico",
+    ".bmp",
+    ".psd",
+    ".ai",
+    ".tif",
+    ".tiff",
+    ".mp3",
+    ".wav",
+    ".flac",
+    ".aac",
+    ".m4a",
+    ".ogg",
+    ".mp4",
+    ".mov",
+    ".avi",
+    ".mkv",
+    ".ttf",
+    ".otf",
+    ".woff",
+    ".woff2",
+    ".eot",
+    ".bin",
+    ".dat",
+    ".img",
+}
 
 
 def setup_logging(verbose: bool = False, quiet: bool = False) -> None:
@@ -135,6 +191,52 @@ def is_command_available(cmd: str) -> bool:
     if cmd not in _command_availability_cache:
         _command_availability_cache[cmd] = shutil.which(cmd) is not None
     return _command_availability_cache[cmd]
+
+
+def _taidy_cache_dir() -> Path:
+    cache_root = os.environ.get("XDG_CACHE_HOME")
+    if cache_root:
+        return Path(cache_root) / "taidy"
+    return Path.home() / ".cache" / "taidy"
+
+
+def _ensure_prettier_pug_install() -> Tuple[Path, Path]:
+    cache_dir = _taidy_cache_dir() / "prettier-pug"
+    prettier_bin = cache_dir / "node_modules" / "prettier" / "bin" / "prettier.cjs"
+    plugin_file = cache_dir / "node_modules" / "@prettier" / "plugin-pug" / "dist" / "index.js"
+    if not (prettier_bin.exists() and plugin_file.exists()):
+        cache_dir.mkdir(parents=True, exist_ok=True)
+        if not is_command_available("npm"):
+            raise RuntimeError("npm is required to install prettier and @prettier/plugin-pug")
+        subprocess.run(
+            [
+                "npm",
+                "install",
+                "--no-save",
+                "--prefix",
+                str(cache_dir),
+                "prettier",
+                "@prettier/plugin-pug",
+            ],
+            check=True,
+        )
+    return prettier_bin, plugin_file
+
+
+def _pug_prettier_command(files: List[str]) -> Tuple[str, List[str]]:
+    prettier_bin, plugin_file = _ensure_prettier_pug_install()
+    return (
+        "node",
+        [
+            str(prettier_bin),
+            "--write",
+            "--log-level",
+            "error",
+            "--plugin",
+            str(plugin_file),
+        ]
+        + files,
+    )
 
 
 def detect_linux_distribution() -> Optional[Dict[str, str]]:
@@ -565,7 +667,11 @@ def discover_files_in_directory(directory_path: str) -> List[str]:
         is_supported = ext in supported_extensions
 
         # Special case: Justfile files
-        if not is_supported and file_path.name.lower() in ["justfile", "justfile.just"]:
+        if not is_supported and file_path.name.lower() in JUSTFILE_NAMES:
+            is_supported = True
+
+        # Special case: Makefile files
+        if not is_supported and file_path.name.lower() in MAKEFILE_NAMES:
             is_supported = True
 
         # Special case: GitHub Actions workflow files
@@ -999,19 +1105,8 @@ FORMATTER_MAP: Dict[str, List[LinterCommand]] = {
     ],
     ".pug": [
         LinterCommand(
-            available=lambda: is_command_available("bunx"),
-            command=lambda files: (
-                "bunx",
-                ["prettier", "--write", "--plugin=@prettier/plugin-pug"] + files,
-            ),
-            supports_directories=True,
-        ),
-        LinterCommand(
-            available=lambda: is_command_available("npx"),
-            command=lambda files: (
-                "npx",
-                ["prettier", "--write", "--plugin=@prettier/plugin-pug"] + files,
-            ),
+            available=lambda: is_command_available("node") and is_command_available("npm"),
+            command=_pug_prettier_command,
             supports_directories=True,
         ),
     ],
@@ -1118,6 +1213,12 @@ FORMATTER_MAP: Dict[str, List[LinterCommand]] = {
                 ["--write", "--log-level", "error"] + files,
             ),
             supports_directories=True,
+        ),
+    ],
+    "makefile": [
+        LinterCommand(
+            available=lambda: is_command_available("mbake"),
+            command=lambda files: ("mbake", ["format"] + files),
         ),
     ],
     "justfile": [
@@ -1348,8 +1449,10 @@ def process_files(files: List[str], mode: Mode) -> int:
         mapped_ext = ext
 
         # Special case: Justfile files
-        if file_path.name.lower() in ["justfile", "justfile.just"]:
+        if file_path.name.lower() in JUSTFILE_NAMES:
             mapped_ext = "justfile"
+        elif file_path.name.lower() in MAKEFILE_NAMES:
+            mapped_ext = "makefile"
 
         # Special case: GitHub Actions workflow files
         if ext in [".yml", ".yaml"] and ".github/workflows" in str(file_path):
@@ -1369,8 +1472,8 @@ def process_files(files: List[str], mode: Mode) -> int:
                 file_groups[mapped_ext] = []
             file_groups[mapped_ext].append(file)
         else:
-            # Only warn once per extension
-            if ext not in warned_extensions:
+            # Only warn once per extension, and skip known unformattable types
+            if ext not in warned_extensions and ext not in ALWAYS_UNFORMATTABLE_EXTENSIONS:
                 logger.warning(f"No linter configured for extension {ext}")
                 warned_extensions.add(ext)
 
@@ -1513,8 +1616,10 @@ def analyze_project_files(directory: str = ".") -> Dict[str, Set[str]]:
         ext = file_path.suffix.lower()
 
         # Handle special cases
-        if file_path.name.lower() in ["justfile", "justfile.just"]:
+        if file_path.name.lower() in JUSTFILE_NAMES:
             found_extensions.add("justfile")
+        elif file_path.name.lower() in MAKEFILE_NAMES:
+            found_extensions.add("makefile")
         elif ext in [".yml", ".yaml"] and ".github/workflows" in str(file_path):
             found_extensions.add(".github-workflow")
         elif ext:
@@ -1574,6 +1679,7 @@ def get_install_commands(platform_info: Dict[str, Any]) -> Dict[str, str]:
         "rubocop": "gem install rubocop",
         "php-cs-fixer": "composer global require friendsofphp/php-cs-fixer",
         "yamllint": "pip install yamllint",
+        "mbake": "pip install mbake",
         "taplo": "cargo install taplo-cli",
         "just": "cargo install just",
         "trufflehog": "go install github.com/trufflesecurity/trufflehog/v3@latest",
@@ -1748,6 +1854,7 @@ def get_tool_suggestions(extensions: Set[str]) -> Dict[str, List[str]]:
         ".tf": ["terraform", "tflint"],
         ".tfvars": ["terraform", "tflint"],
         ".github-workflow": ["actionlint", "yamllint", "prettier"],
+        "makefile": ["mbake"],
         "justfile": ["just"],
         ".security": ["trufflehog"],
     }

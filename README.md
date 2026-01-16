@@ -28,6 +28,7 @@ Mostly written by AI (Claude Code and Aider).
 | **YAML**           | yamllint → prettier                                              |
 | **TOML**           | taplo check → taplo format                                       |
 | **Terraform**      | terraform validate/tflint → terraform fmt                        |
+| **Makefile**       | mbake format                                                     |
 | **Justfile**       | just --fmt --check → just --fmt                                  |
 | **GitHub Actions** | actionlint → yamllint → prettier (.github/workflows/\*.yml)      |
 | **Security**       | trufflehog (scans for secrets across all file types)             |
