@@ -30,6 +30,7 @@ Commands:
   lint       Lint files only (no formatting)
   format     Format files only (no linting)
   suggest    Analyze project and suggest tools to install
+  bootstrap  Install uv and node to ~/.cache/taidy (only if missing)
   docker     Run taidy in Docker with all tools pre-installed
   (none)     Both lint and format (default)
 
@@ -216,6 +217,183 @@ def _taidy_cache_dir() -> Path:
     if cache_root:
         return Path(cache_root) / "taidy"
     return Path.home() / ".cache" / "taidy"
+
+
+def _find_nvm_node_bin() -> Optional[Path]:
+    """Find the bin directory of the node version installed by nvm in our cache."""
+    nvm_dir = _taidy_cache_dir() / "nvm"
+    versions_dir = nvm_dir / "versions" / "node"
+    if not versions_dir.exists():
+        return None
+    # Pick the first (usually only) installed version
+    for version_dir in sorted(versions_dir.iterdir(), reverse=True):
+        bin_dir = version_dir / "bin"
+        if bin_dir.exists() and (bin_dir / "node").exists():
+            return bin_dir
+    return None
+
+
+def _add_bootstrapped_paths() -> None:
+    """Add bootstrapped tool directories to PATH so is_command_available finds them."""
+    path_dirs = []
+
+    # uv bin dir
+    uv_bin = _taidy_cache_dir() / "uv" / "bin"
+    if uv_bin.exists():
+        path_dirs.append(str(uv_bin))
+
+    # node bin dir (installed via nvm)
+    node_bin = _find_nvm_node_bin()
+    if node_bin:
+        path_dirs.append(str(node_bin))
+
+    if path_dirs:
+        current_path = os.environ.get("PATH", "")
+        os.environ["PATH"] = os.pathsep.join(path_dirs) + os.pathsep + current_path
+
+
+def _download(url: str) -> str:
+    """Download a URL and return the content as a string. Uses curl or wget."""
+    if shutil.which("curl"):
+        result = subprocess.run(["curl", "-fsSL", url], capture_output=True, text=True, timeout=120)
+        if result.returncode != 0:
+            raise RuntimeError(f"curl failed: {result.stderr}")
+        return result.stdout
+    elif shutil.which("wget"):
+        result = subprocess.run(["wget", "-qO-", url], capture_output=True, text=True, timeout=120)
+        if result.returncode != 0:
+            raise RuntimeError(f"wget failed: {result.stderr}")
+        return result.stdout
+    else:
+        raise RuntimeError("Neither curl nor wget is available")
+
+
+def bootstrap_uv() -> bool:
+    """Install uv to the taidy cache directory. Returns True if installed."""
+    install_dir = _taidy_cache_dir() / "uv" / "bin"
+    uv_bin = install_dir / "uv"
+
+    if uv_bin.exists():
+        print(f"  uv: already installed at {uv_bin}")
+        return False
+
+    print("  uv: installing...")
+    install_dir.mkdir(parents=True, exist_ok=True)
+
+    env = os.environ.copy()
+    env["UV_INSTALL_DIR"] = str(install_dir)
+    env["UV_NO_MODIFY_PATH"] = "1"
+
+    script = _download("https://astral.sh/uv/install.sh")
+    result = subprocess.run(
+        ["sh"], input=script, capture_output=True, text=True, env=env, timeout=120
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"uv installer failed: {result.stderr}")
+
+    if not uv_bin.exists():
+        raise RuntimeError(f"uv installer completed but {uv_bin} not found")
+
+    print(f"  uv: installed to {uv_bin}")
+    return True
+
+
+def bootstrap_node() -> bool:
+    """Install nvm and node to the taidy cache directory. Returns True if installed."""
+    nvm_dir = _taidy_cache_dir() / "nvm"
+    nvm_sh = nvm_dir / "nvm.sh"
+
+    # Check if node is already available via our nvm install
+    node_bin = _find_nvm_node_bin()
+    if node_bin and (node_bin / "node").exists():
+        print(f"  node: already installed at {node_bin / 'node'}")
+        return False
+
+    print("  nvm: installing...")
+    nvm_dir.mkdir(parents=True, exist_ok=True)
+
+    env = os.environ.copy()
+    env["NVM_DIR"] = str(nvm_dir)
+    env["PROFILE"] = "/dev/null"  # Don't modify shell profiles
+
+    script = _download("https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh")
+    result = subprocess.run(
+        ["sh"], input=script, capture_output=True, text=True, env=env, timeout=120
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"nvm installer failed: {result.stderr}")
+
+    if not nvm_sh.exists():
+        raise RuntimeError(f"nvm installer completed but {nvm_sh} not found")
+
+    print("  nvm: installed")
+
+    # Now install the latest LTS node using nvm
+    print("  node: installing LTS version...")
+    install_cmd = f'source "{nvm_sh}" && nvm install --lts'
+    result = subprocess.run(
+        ["bash", "-c", install_cmd],
+        capture_output=True,
+        text=True,
+        env=env,
+        timeout=300,
+    )
+    if result.returncode != 0:
+        raise RuntimeError(f"node installation failed: {result.stderr}")
+
+    node_bin = _find_nvm_node_bin()
+    if not node_bin:
+        raise RuntimeError("node installation completed but node binary not found")
+
+    print(f"  node: installed to {node_bin / 'node'}")
+    return True
+
+
+def bootstrap() -> int:
+    """Install missing tools (uv, node) to the taidy cache directory."""
+    cache_dir = _taidy_cache_dir()
+    print(f"Taidy bootstrap (cache: {cache_dir})")
+    print()
+
+    installed = []
+    skipped = []
+
+    # Check what's already available system-wide
+    checks = [
+        ("uv", ["uv", "uvx"], bootstrap_uv),
+        ("node", ["node", "npm", "npx"], bootstrap_node),
+    ]
+
+    for name, commands, installer in checks:
+        # If all commands are already on PATH, skip
+        all_available = all(shutil.which(cmd) is not None for cmd in commands)
+        if all_available:
+            print(f"  {name}: already available on system PATH")
+            skipped.append(name)
+            continue
+
+        try:
+            did_install = installer()
+            if did_install:
+                installed.append(name)
+            else:
+                skipped.append(name)
+        except RuntimeError as e:
+            print(f"  {name}: FAILED - {e}", file=sys.stderr)
+            return 1
+
+    # Update PATH so subsequent commands find the new tools
+    _add_bootstrapped_paths()
+
+    print()
+    if installed:
+        print(f"Installed: {', '.join(installed)}")
+    if skipped:
+        print(f"Already available: {', '.join(skipped)}")
+    if not installed:
+        print("Nothing to install.")
+
+    return 0
 
 
 def _ensure_prettier_pug_install() -> Tuple[Path, Path]:
@@ -2170,6 +2348,9 @@ def docker_run(
 
 def main() -> None:
     """Main entry point"""
+    # Make bootstrapped tools available on PATH before anything else
+    _add_bootstrapped_paths()
+
     # Parse flags first
     args = sys.argv[1:]
     verbose = False
@@ -2226,6 +2407,9 @@ def main() -> None:
         files = filtered_args[1:]
     elif filtered_args[0] == "suggest":
         exit_code = suggest_tools(quiet=quiet)
+        sys.exit(exit_code)
+    elif filtered_args[0] == "bootstrap":
+        exit_code = bootstrap()
         sys.exit(exit_code)
     elif filtered_args[0] == "docker":
         # Parse docker-specific flags
