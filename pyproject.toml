@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "taidy"
-version = "0.1.0"
+version = "0.1.2"
 description = "Smart linter/formatter with automatic tool detection"
 readme = "README.md"
 requires-python = ">=3.6"
@@ -77,4 +77,4 @@ indent-style = "space"
 line-ending = "lf"
 
 [tool.ruff.lint.isort]
-known-first-party = ["clawssify"]
+known-first-party = ["taidy"]

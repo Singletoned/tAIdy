@@ -16,8 +16,9 @@ from enum import Enum
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
-# Version information - can be overridden at build time
-VERSION = "0.1.0"
+from taidy import __version__ as VERSION
+
+# Build information - can be overridden at build time
 GIT_COMMIT = "unknown"
 BUILD_DATE = "unknown"
 
@@ -26,32 +27,28 @@ USAGE_TEXT = """
 Usage: taidy [flags] [command] <files_or_directories...>
 
 Commands:
-  lint     Lint files only (no formatting)
-  format   Format files only (no linting)
-  suggest  Analyze project and suggest tools to install
-  docker   Run taidy in Docker with all tools pre-installed
-  (none)   Both lint and format (default)
-
-Examples:
-  taidy file.py               # Lint and format a single file
-  taidy .                     # Process all supported files in current directory
-  taidy src/                  # Process all supported files in src/ directory
-  taidy lint file1.py file2.js  # Lint multiple files
-  taidy suggest               # Analyze project and suggest missing tools
-  taidy docker .              # Run taidy in Docker (pulls prebuilt image)
-  taidy docker --build-local .  # Build and run Docker image locally
-  taidy docker --pull-always .  # Always pull latest image before running
+  lint       Lint files only (no formatting)
+  format     Format files only (no linting)
+  suggest    Analyze project and suggest tools to install
+  docker     Run taidy in Docker with all tools pre-installed
+  (none)     Both lint and format (default)
 
 Flags:
   -h, --help     Show this help message
   --version      Show version information
-  --verbose      Show verbose output (info level)
   -q, --quiet    Suppress warnings (errors only)
+  --verbose      Show verbose output (info level)
+  --json         Output results as JSON (for automation)
+  --dry-run      Show what would be run without executing
 
-Docker Flags (used with 'docker' command):
-  --pull-always       Always pull the latest image before running
-  --build-local       Build the Docker image locally instead of pulling
-  --image <name>      Use a custom Docker image (default: ghcr.io/singletoned/taidy:latest)"""
+Examples:
+  taidy file.py          # Lint and format a single file
+  taidy .                # Process current directory
+  taidy lint src/        # Lint only
+  taidy --json .         # JSON output for automation
+  taidy suggest          # Show missing tools
+
+Supported: Python, JS/TS, Go, Rust, Ruby, PHP, Shell, JSON, CSS, HTML, YAML, TOML, Terraform"""
 
 DIRECTORY_PROCESSING_TEXT = """Directory Processing:
   When a directory is specified, taidy recursively finds all supported files
@@ -68,6 +65,8 @@ SUPPORTED_LANGUAGES_TEXT = """Supported file types and linters:
   PHP:          php-cs-fixer
   Shell:        shellcheck → beautysh (linting), shfmt → beautysh (formatting)
   JSON/CSS:     prettier
+  Jinja HTML:   djlint
+  HTML:         prettier
   YAML:         yamllint → prettier
   TOML:         taplo check → taplo format
   Terraform:    terraform validate/tflint → terraform fmt
@@ -95,6 +94,7 @@ logger = logging.getLogger(__name__)
 
 JUSTFILE_NAMES: Set[str] = {"justfile", "justfile.just"}
 MAKEFILE_NAMES: Set[str] = {"makefile", "gnumakefile"}
+JINJA_HTML_SUFFIX = ".jinja.html"
 
 # Extensions that are inherently unlintable/unformattable (binary/opaque assets)
 ALWAYS_UNFORMATTABLE_EXTENSIONS: Set[str] = {
@@ -180,6 +180,24 @@ class LinterCommand:
     available: Callable[[], bool]
     command: Callable[[List[str]], Tuple[str, List[str]]]
     supports_directories: bool = False
+
+
+@dataclass
+class ProcessingResult:
+    """Result of processing files"""
+
+    files_processed: int
+    exit_code: int
+    tools_used: List[str]
+    errors: List[str]
+
+    def to_dict(self) -> Dict[str, Any]:
+        return {
+            "files_processed": self.files_processed,
+            "exit_code": self.exit_code,
+            "tools_used": self.tools_used,
+            "errors": self.errors,
+        }
 
 
 # Cache for command availability to avoid repeated shutil.which() calls
@@ -841,6 +859,13 @@ LINTER_MAP: Dict[str, List[LinterCommand]] = {
             ),
         ),
     ],
+    ".jinja.html": [
+        LinterCommand(
+            available=lambda: is_command_available("djlint"),
+            command=lambda files: ("djlint", ["--check"] + files),
+            supports_directories=True,
+        ),
+    ],
     ".html": [
         LinterCommand(
             available=lambda: is_command_available("prettier"),
@@ -1080,6 +1105,13 @@ FORMATTER_MAP: Dict[str, List[LinterCommand]] = {
                 "prettier",
                 ["--write", "--log-level", "error"] + files,
             ),
+            supports_directories=True,
+        ),
+    ],
+    ".jinja.html": [
+        LinterCommand(
+            available=lambda: is_command_available("djlint"),
+            command=lambda files: ("djlint", ["--reformat"] + files),
             supports_directories=True,
         ),
     ],
@@ -1384,7 +1416,10 @@ def process_file_group(
             result = execute_linters(LINTER_MAP[ext], inputs)
             if result == 2:
                 with output_lock:
-                    logger.warning(f"No available linter found for {ext} files")
+                    logger.warning(
+                        f"No available linter found for {ext} files. "
+                        "Run 'taidy suggest' for tool recommendations."
+                    )
             elif result != 0:
                 exit_code = result
 
@@ -1402,15 +1437,21 @@ def process_file_group(
             result = execute_linters(FORMATTER_MAP[ext], inputs)
             if result == 2:
                 with output_lock:
-                    logger.warning(f"No available formatter found for {ext} files")
+                    logger.warning(
+                        f"No available formatter found for {ext} files. "
+                        "Run 'taidy suggest' for tool recommendations."
+                    )
             elif result != 0:
                 exit_code = result
 
     return exit_code
 
 
-def process_files(files: List[str], mode: Mode) -> int:
+def process_files(files: List[str], mode: Mode, dry_run: bool = False) -> ProcessingResult:
     """Process files according to the specified mode"""
+    tools_used: List[str] = []
+    errors: List[str] = []
+
     # Track which inputs were directories for potential direct passing to formatters
     input_directories = [f for f in files if os.path.isdir(f) and os.path.exists(f)]
 
@@ -1448,6 +1489,10 @@ def process_files(files: List[str], mode: Mode) -> int:
         # Handle special cases for file mapping
         mapped_ext = ext
 
+        # Special case: Jinja HTML files
+        if file_path.name.lower().endswith(JINJA_HTML_SUFFIX):
+            mapped_ext = JINJA_HTML_SUFFIX
+
         # Special case: Justfile files
         if file_path.name.lower() in JUSTFILE_NAMES:
             mapped_ext = "justfile"
@@ -1474,7 +1519,10 @@ def process_files(files: List[str], mode: Mode) -> int:
         else:
             # Only warn once per extension, and skip known unformattable types
             if ext not in warned_extensions and ext not in ALWAYS_UNFORMATTABLE_EXTENSIONS:
-                logger.warning(f"No linter configured for extension {ext}")
+                logger.warning(
+                    f"No linter configured for extension {ext}. "
+                    "Run 'taidy suggest' for tool recommendations."
+                )
                 warned_extensions.add(ext)
 
         # Add to security scanning group if trufflehog is available, we're linting,
@@ -1520,7 +1568,7 @@ def process_files(files: List[str], mode: Mode) -> int:
     # Check if any files will be processed
     if not file_groups:
         logger.info("No supported files provided, no files were linted")
-        return 0
+        return ProcessingResult(files_processed=0, exit_code=0, tools_used=[], errors=[])
 
     # Batch commands by their command signature to avoid duplicate runs
     command_batches: Dict[Tuple[str, Tuple[str, ...]], List[str]] = {}
@@ -1573,6 +1621,38 @@ def process_files(files: List[str], mode: Mode) -> int:
                     command_batches[cmd_signature].extend(inputs)
                     break  # Only use the first available command
 
+    # Track tools used
+    for cmd_signature in command_batches.keys():
+        cmd = cmd_signature[0]
+        if cmd not in tools_used:
+            tools_used.append(cmd)
+
+    # Count files processed (unique files across all batches)
+    all_files = set()
+    for file_list in command_batches.values():
+        all_files.update(file_list)
+    files_processed = len(all_files)
+
+    # Handle dry-run mode
+    if dry_run:
+        print("Dry run - commands that would be executed:")
+        for cmd_signature, file_list in command_batches.items():
+            cmd, base_args = cmd_signature
+            unique_files = list(dict.fromkeys(file_list))  # Preserve order, remove duplicates
+            if cmd == "just" and "--fmt" in base_args:
+                args = list(base_args)
+            elif cmd == "trufflehog" and "git" in base_args:
+                args = list(base_args)
+            else:
+                args = list(base_args) + unique_files
+            print(f"  {cmd} {' '.join(args)}")
+        return ProcessingResult(
+            files_processed=files_processed,
+            exit_code=0,
+            tools_used=tools_used,
+            errors=[],
+        )
+
     # Execute batched commands
     exit_code = 0
 
@@ -1595,12 +1675,19 @@ def process_files(files: List[str], mode: Mode) -> int:
                 result = future.result()
                 if result != 0:
                     exit_code = result
+                    errors.append(f"{cmd_signature[0]} failed with exit code {result}")
             except Exception as e:
                 with output_lock:
                     logger.error(f"Error executing {cmd_signature[0]}: {e}")
                 exit_code = 1
+                errors.append(f"Error executing {cmd_signature[0]}: {e}")
 
-    return exit_code
+    return ProcessingResult(
+        files_processed=files_processed,
+        exit_code=exit_code,
+        tools_used=tools_used,
+        errors=errors,
+    )
 
 
 def analyze_project_files(directory: str = ".") -> Dict[str, Set[str]]:
@@ -1614,11 +1701,14 @@ def analyze_project_files(directory: str = ".") -> Dict[str, Set[str]]:
     for file_path_str in all_files:
         file_path = Path(file_path_str)
         ext = file_path.suffix.lower()
+        file_name = file_path.name.lower()
 
         # Handle special cases
-        if file_path.name.lower() in JUSTFILE_NAMES:
+        if file_name.endswith(JINJA_HTML_SUFFIX):
+            found_extensions.add(JINJA_HTML_SUFFIX)
+        elif file_name in JUSTFILE_NAMES:
             found_extensions.add("justfile")
-        elif file_path.name.lower() in MAKEFILE_NAMES:
+        elif file_name in MAKEFILE_NAMES:
             found_extensions.add("makefile")
         elif ext in [".yml", ".yaml"] and ".github/workflows" in str(file_path):
             found_extensions.add(".github-workflow")
@@ -1679,6 +1769,7 @@ def get_install_commands(platform_info: Dict[str, Any]) -> Dict[str, str]:
         "rubocop": "gem install rubocop",
         "php-cs-fixer": "composer global require friendsofphp/php-cs-fixer",
         "yamllint": "pip install yamllint",
+        "djlint": "pip install djlint",
         "mbake": "pip install mbake",
         "taplo": "cargo install taplo-cli",
         "just": "cargo install just",
@@ -1846,6 +1937,7 @@ def get_tool_suggestions(extensions: Set[str]) -> Dict[str, List[str]]:
         ".json": ["prettier"],
         ".css": ["prettier"],
         ".scss": ["prettier"],
+        ".jinja.html": ["djlint"],
         ".html": ["prettier"],
         ".md": ["prettier"],
         ".yaml": ["yamllint", "prettier"],
@@ -1876,37 +1968,41 @@ def get_tool_suggestions(extensions: Set[str]) -> Dict[str, List[str]]:
     return suggestions
 
 
-def suggest_tools() -> int:
+def suggest_tools(quiet: bool = False) -> int:
     """Analyze project and suggest missing tools"""
-    print("🔍 Analyzing project files...")
+    if not quiet:
+        print("Analyzing project files...")
 
     # Get platform information
     platform_info = get_platform_info()
 
     # Show platform information
-    if platform_info["system"] == "linux" and platform_info["distribution"]:
-        platform_name = platform_info.get("pretty_name", platform_info["name"])
-        if platform_name:
-            print(f"🐧 Detected platform: {platform_name}")
-        else:
-            print(f"🐧 Detected platform: Linux ({platform_info['distribution']})")
-    elif platform_info["system"] == "darwin":
-        print("🍎 Detected platform: macOS")
-    elif platform_info["system"] == "windows":
-        print("🪟 Detected platform: Windows")
+    if not quiet:
+        if platform_info["system"] == "linux" and platform_info["distribution"]:
+            platform_name = platform_info.get("pretty_name", platform_info["name"])
+            if platform_name:
+                print(f"Detected platform: {platform_name}")
+            else:
+                print(f"Detected platform: Linux ({platform_info['distribution']})")
+        elif platform_info["system"] == "darwin":
+            print("Detected platform: macOS")
+        elif platform_info["system"] == "windows":
+            print("Detected platform: Windows")
 
     analysis = analyze_project_files()
     found_extensions = analysis["found_extensions"]
 
     if not found_extensions:
-        print("No supported files found in project.")
+        if not quiet:
+            print("No supported files found in project.")
         return 0
 
-    print(f"\n📁 Found file types: {', '.join(sorted(found_extensions))}")
+    if not quiet:
+        print(f"\nFound file types: {', '.join(sorted(found_extensions))}")
 
     # Show what's already available
-    if analysis["available_linters"] or analysis["available_formatters"]:
-        print("\n✅ Available tools:")
+    if not quiet and (analysis["available_linters"] or analysis["available_formatters"]):
+        print("\nAvailable tools:")
         all_available = analysis["available_linters"] | analysis["available_formatters"]
         for ext in sorted(all_available):
             tools = []
@@ -1929,34 +2025,35 @@ def suggest_tools() -> int:
     missing_extensions = analysis["missing_linters"] | analysis["missing_formatters"]
 
     if missing_extensions:
-        # Show platform-specific header
-        if platform_info["system"] == "linux" and platform_info["distribution"]:
-            platform_name = platform_info.get("pretty_name", platform_info["name"])
-            if platform_name:
-                print(f"\n💡 Suggested tool installations for {platform_name}:")
+        if not quiet:
+            # Show platform-specific header
+            if platform_info["system"] == "linux" and platform_info["distribution"]:
+                platform_name = platform_info.get("pretty_name", platform_info["name"])
+                if platform_name:
+                    print(f"\nSuggested tool installations for {platform_name}:")
+                else:
+                    distribution = platform_info["distribution"]
+                    print(f"\nSuggested tool installations for Linux ({distribution}):")
             else:
-                distribution = platform_info["distribution"]
-                print(f"\n💡 Suggested tool installations for Linux ({distribution}):")
-        else:
-            print("\n💡 Suggested tool installations:")
+                print("\nSuggested tool installations:")
 
-        suggestions = get_tool_suggestions(missing_extensions)
+            suggestions = get_tool_suggestions(missing_extensions)
 
-        for ext in sorted(suggestions.keys()):
-            print(f"\n  {ext} files:")
-            for suggestion in suggestions[ext]:
-                print(f"    {suggestion}")
+            for ext in sorted(suggestions.keys()):
+                print(f"\n  {ext} files:")
+                for suggestion in suggestions[ext]:
+                    print(f"    {suggestion}")
 
-        # Add helpful notes for Linux users
-        if platform_info["system"] == "linux":
-            print("\n📝 Installation notes:")
-            print("  • Some tools may require additional setup (e.g., adding to PATH)")
-            print("  • For Go tools, ensure Go is installed and GOPATH is configured")
-            print("  • For npm tools, ensure Node.js and npm are installed")
-            print("  • For pip tools, ensure Python and pip are installed")
-            print("  • For cargo tools, ensure Rust is installed")
-    else:
-        print("\n🎉 All recommended tools are already available!")
+            # Add helpful notes for Linux users
+            if platform_info["system"] == "linux":
+                print("\nInstallation notes:")
+                print("  - Some tools may require additional setup (e.g., adding to PATH)")
+                print("  - For Go tools, ensure Go is installed and GOPATH is configured")
+                print("  - For npm tools, ensure Node.js and npm are installed")
+                print("  - For pip tools, ensure Python and pip are installed")
+                print("  - For cargo tools, ensure Rust is installed")
+    elif not quiet:
+        print("\nAll recommended tools are already available!")
 
     return 0
 
@@ -1980,7 +2077,7 @@ def docker_run(
 
     # Check if Docker is available
     if not is_command_available("docker"):
-        print("❌ Docker is not installed or not available in PATH.", file=sys.stderr)
+        print("Error: Docker is not installed or not available in PATH.", file=sys.stderr)
         print("Please install Docker to use this feature.", file=sys.stderr)
         return 1
 
@@ -1989,17 +2086,17 @@ def docker_run(
         # If building locally, use local Dockerfile
         if build_local:
             local_image = "taidy:latest"
-            print("🔨 Building Docker image locally from Dockerfile...")
+            print("Building Docker image locally from Dockerfile...")
             print("This may take several minutes...")
             build_result = subprocess.run(
                 ["docker", "build", "-t", local_image, "."], cwd=os.getcwd()
             )
 
             if build_result.returncode != 0:
-                print("❌ Failed to build Docker image.", file=sys.stderr)
+                print("Error: Failed to build Docker image.", file=sys.stderr)
                 return 1
 
-            print(f"✅ Successfully built local image '{local_image}'")
+            print(f"Successfully built local image '{local_image}'")
             docker_image = local_image
         else:
             # Check if image exists locally
@@ -2011,12 +2108,12 @@ def docker_run(
             # Pull image if it doesn't exist or if pull_always is set
             if not image_exists or pull_always:
                 action = "Pulling latest" if pull_always else "Downloading"
-                print(f"📥 {action} Docker image from GitHub Container Registry...")
+                print(f"{action} Docker image from GitHub Container Registry...")
                 print(f"Image: {docker_image}")
                 pull_result = subprocess.run(["docker", "pull", docker_image])
 
                 if pull_result.returncode != 0:
-                    print(f"❌ Failed to pull Docker image '{docker_image}'.", file=sys.stderr)
+                    print(f"Error: Failed to pull Docker image '{docker_image}'.", file=sys.stderr)
                     print("\nYou can try:", file=sys.stderr)
                     print(
                         "  1. Run 'taidy docker --build-local .' to build locally", file=sys.stderr
@@ -2029,12 +2126,12 @@ def docker_run(
                     )
                     return 1
 
-                print(f"✅ Successfully pulled image '{docker_image}'")
+                print(f"Successfully pulled image '{docker_image}'")
             else:
-                print(f"✓ Using cached Docker image '{docker_image}'")
+                print(f"Using cached Docker image '{docker_image}'")
 
     except Exception as e:
-        print(f"❌ Error preparing Docker image: {e}", file=sys.stderr)
+        print(f"Error preparing Docker image: {e}", file=sys.stderr)
         return 1
 
     # Get current working directory for mounting
@@ -2052,7 +2149,7 @@ def docker_run(
         docker_image,
     ] + args
 
-    print("🐳 Running taidy in Docker container...")
+    print("Running taidy in Docker container...")
     args_str = " ".join(args)
     print(
         f"Command: docker run --rm -v {current_dir}:/workspace "
@@ -2064,10 +2161,10 @@ def docker_run(
         result = subprocess.run(docker_cmd)
         return result.returncode
     except KeyboardInterrupt:
-        print("\n⚠️  Interrupted by user")
+        print("\nInterrupted by user")
         return 130
     except Exception as e:
-        print(f"❌ Error running Docker container: {e}", file=sys.stderr)
+        print(f"Error running Docker container: {e}", file=sys.stderr)
         return 1
 
 
@@ -2077,6 +2174,8 @@ def main() -> None:
     args = sys.argv[1:]
     verbose = False
     quiet = False
+    json_output = False
+    dry_run = False
 
     # Process flags and remove them from args
     filtered_args = []
@@ -2087,6 +2186,11 @@ def main() -> None:
             verbose = True
         elif arg in ["-q", "--quiet"]:
             quiet = True
+        elif arg == "--json":
+            json_output = True
+            quiet = True  # JSON mode implies quiet
+        elif arg == "--dry-run":
+            dry_run = True
         elif arg in ["-h", "--help"]:
             show_help()
             sys.exit(0)
@@ -2102,7 +2206,7 @@ def main() -> None:
 
     if len(filtered_args) < 1:
         show_usage()
-        sys.exit(1)
+        sys.exit(2)
 
     # Parse command and files
     mode = Mode.BOTH
@@ -2112,16 +2216,16 @@ def main() -> None:
         mode = Mode.LINT
         if len(filtered_args) < 2:
             show_usage()
-            sys.exit(1)
+            sys.exit(2)
         files = filtered_args[1:]
     elif filtered_args[0] == "format":
         mode = Mode.FORMAT
         if len(filtered_args) < 2:
             show_usage()
-            sys.exit(1)
+            sys.exit(2)
         files = filtered_args[1:]
     elif filtered_args[0] == "suggest":
-        exit_code = suggest_tools()
+        exit_code = suggest_tools(quiet=quiet)
         sys.exit(exit_code)
     elif filtered_args[0] == "docker":
         # Parse docker-specific flags
@@ -2140,8 +2244,8 @@ def main() -> None:
                 build_local = True
             elif arg == "--image":
                 if i + 1 >= len(docker_args):
-                    print("❌ --image flag requires an argument", file=sys.stderr)
-                    sys.exit(1)
+                    print("Error: --image flag requires an argument", file=sys.stderr)
+                    sys.exit(2)
                 custom_image = docker_args[i + 1]
                 i += 1  # Skip the next arg
             else:
@@ -2150,7 +2254,7 @@ def main() -> None:
 
         if len(taidy_args) < 1:
             show_usage()
-            sys.exit(1)
+            sys.exit(2)
 
         exit_code = docker_run(
             taidy_args, pull_always=pull_always, build_local=build_local, custom_image=custom_image
@@ -2161,8 +2265,13 @@ def main() -> None:
         mode = Mode.BOTH
         files = filtered_args
 
-    exit_code = process_files(files, mode)
-    sys.exit(exit_code)
+    result = process_files(files, mode, dry_run=dry_run)
+
+    if json_output:
+        print(json.dumps(result.to_dict()))
+        sys.exit(result.exit_code)
+    else:
+        sys.exit(result.exit_code)
 
 
 if __name__ == "__main__":

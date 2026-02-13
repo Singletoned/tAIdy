@@ -1,16 +1,16 @@
 # Taidy
 
-A linter/formatter for all file types. Designed for AI agents to be able to easily use, so that you can tell them to use this for every file and it won't fail. Detects what tools are installed and uses them. If it can't find a tool, it passes silently.
+A linter/formatter for all file types. Designed for AI agents to be able to easily use, so that you can tell them to use this for every file and it won't fail. Detects what tools are installed and uses them. If it can't find a tool, it logs a warning and continues.
 
 Mostly written by AI (Claude Code and Aider).
 
 ## Features
 
-- 🔍 **Automatic Tool Detection**: Tries multiple linters/formatters in priority order
-- 🚀 **Zero Configuration**: Works out of the box (but respects existing config)
-- 🔧 **Extensible**: Easy to add support for new languages and tools
-- 📦 **Python Package**: Easy to install with pip, or run directly with Python
-- 🎯 **Smart Fallbacks**: Gracefully falls back when preferred tools aren't available
+- **Automatic Tool Detection**: Tries multiple linters/formatters in priority order
+- **Zero Configuration**: Works out of the box (but respects existing config)
+- **Extensible**: Easy to add support for new languages and tools
+- **Python Package**: Easy to install with pip, or run directly with Python
+- **Smart Fallbacks**: Gracefully falls back when preferred tools aren't available
 
 ## Supported Languages & Tools
 
@@ -25,6 +25,8 @@ Mostly written by AI (Claude Code and Aider).
 | **PHP**            | php-cs-fixer                                                     |
 | **Shell**          | shellcheck → beautysh (linting), shfmt → beautysh (formatting)   |
 | **JSON/CSS**       | prettier                                                         |
+| **Jinja HTML**     | djlint                                                           |
+| **HTML**           | prettier                                                         |
 | **YAML**           | yamllint → prettier                                              |
 | **TOML**           | taplo check → taplo format                                       |
 | **Terraform**      | terraform validate/tflint → terraform fmt                        |
