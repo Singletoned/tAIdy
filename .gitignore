@@ -51,3 +51,8 @@ coverage.out
 # Claude settings
 .claude/settings.local.json
 CLAUDE.md
+AGENTS.md
+
+# Beads issue tracking
+.beads/
+.gitattributes
