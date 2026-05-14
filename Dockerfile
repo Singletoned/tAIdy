@@ -97,7 +97,9 @@ RUN mkdir -p /opt/bin && \
 RUN cargo install taplo-cli --locked && \
     cargo install just --locked
 
-# Install Ruby tools
+# Install Ruby tools into a known location
+ENV GEM_HOME=/usr/local/bundle
+ENV PATH=$GEM_HOME/bin:$PATH
 RUN gem install rubocop --no-document
 
 # Install PHP tools via Composer
@@ -155,18 +157,17 @@ COPY --from=builder /usr/local/bin/eslint /usr/local/bin/
 COPY --from=builder /usr/local/bin/prettier /usr/local/bin/
 COPY --from=builder /usr/local/bin/tsc /usr/local/bin/
 
-# Copy Ruby gems (RubyGems install directory)
+# Copy Ruby gems (GEM_HOME from builder stage)
 COPY --from=builder /usr/local/bundle /usr/local/bundle
-COPY --from=builder /usr/local/bin/rubocop /usr/local/bin/
 
 # Copy PHP Composer tools
 COPY --from=builder /root/.composer /root/.composer
 
 # Set up PATH environment variables for all tools
-ENV PATH="/usr/local/bin:/root/.composer/vendor/bin:$PATH" \
+ENV PATH="/usr/local/bundle/bin:/usr/local/bin:/root/.composer/vendor/bin:$PATH" \
     PYTHONPATH="/usr/local/lib/python3.11/site-packages" \
-    GEM_PATH="/usr/local/bundle" \
-    BUNDLE_PATH="/usr/local/bundle"
+    GEM_HOME="/usr/local/bundle" \
+    GEM_PATH="/usr/local/bundle"
 
 
 # Create lightweight entrypoint script
