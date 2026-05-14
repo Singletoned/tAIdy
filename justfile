@@ -1,6 +1,6 @@
 # Taidy Justfile
 
-# Default recipe
+# Default recipe — fast tests only
 default: test
 
 # Create distribution packages
@@ -15,15 +15,15 @@ test-unit:
 test-integration:
     python3 -m unittest discover tests/integration -v
 
-# Run all Python tests (unit + integration)
-test-python: test-unit test-integration
+# Run Docker-based integration tests (requires Docker)
+test-docker:
+    python3 -m unittest discover tests/docker_tests -v
 
-# Run BDD tests
-test *features:
-    cd tests && go run . {{ features }}
+# Fast tests (unit + integration, no Docker)
+test: test-unit test-integration
 
-# Run all tests (unit + integration + BDD)
-test-all: test-python test
+# All tests including Docker
+test-all: test test-docker
 
 # Run type checking with mypy
 typecheck:
