@@ -43,6 +43,7 @@ coverage.out
 
 # Test logs
 /tests/*.log
+/tests/testcontainer_test
 *.pyc
 
 # MyPy cache

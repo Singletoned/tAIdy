@@ -25,10 +25,6 @@ test *features:
 # Run all tests (unit + integration + BDD)
 test-all: test-python test
 
-# Run only working Python tests (skips problematic unit test files)
-test-working:
-    python3 -m unittest tests.integration tests.unit.test_linter_execution -v
-
 # Run type checking with mypy
 typecheck:
     mypy taidy/
