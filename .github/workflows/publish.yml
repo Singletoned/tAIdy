@@ -69,9 +69,6 @@ jobs:
             sed -i "s/__version__ = .*/__version__ = \"${{ steps.version.outputs.version }}\"/" taidy/__init__.py
           fi
 
-          # Update version in cli.py
-          sed -i "s/VERSION = .*/VERSION = \"${{ steps.version.outputs.version }}\"/" taidy/cli.py
-
       - name: Build package
         run: python -m build
 
