@@ -38,19 +38,20 @@ COPY taidy /app/taidy
 ENV PYTHONPATH=/app
 WORKDIR /tmp
 """,
-    "python311-trufflehog": """\
-FROM python:3.11-slim
-RUN pip install ruff
-RUN apt-get update && apt-get install -y wget && \
-    wget -O /tmp/trufflehog.tar.gz \
-    https://github.com/trufflesecurity/trufflehog/releases/download/v3.89.2/trufflehog_3.89.2_linux_amd64.tar.gz && \
-    tar -xzf /tmp/trufflehog.tar.gz -C /usr/local/bin/ && \
-    chmod +x /usr/local/bin/trufflehog && \
-    rm /tmp/trufflehog.tar.gz
-COPY taidy /app/taidy
-ENV PYTHONPATH=/app
-WORKDIR /tmp
-""",
+    "python311-trufflehog": (  # noqa: E501
+        "FROM python:3.11-slim\n"
+        "RUN pip install ruff\n"
+        "RUN apt-get update && apt-get install -y wget && \\\n"
+        "    wget -O /tmp/trufflehog.tar.gz \\\n"
+        "    https://github.com/trufflesecurity/trufflehog/releases/"
+        "download/v3.89.2/trufflehog_3.89.2_linux_amd64.tar.gz && \\\n"
+        "    tar -xzf /tmp/trufflehog.tar.gz -C /usr/local/bin/ && \\\n"
+        "    chmod +x /usr/local/bin/trufflehog && \\\n"
+        "    rm /tmp/trufflehog.tar.gz\n"
+        "COPY taidy /app/taidy\n"
+        "ENV PYTHONPATH=/app\n"
+        "WORKDIR /tmp\n"
+    ),
     "node18": """\
 FROM node:18-slim
 RUN apt-get update && apt-get install -y python3

@@ -50,18 +50,18 @@ docker run --rm -v "$(pwd):/workspace" taidy:latest .
 
 The Docker image includes:
 
-| Language       | Tools                                        |
-| -------------- | -------------------------------------------- |
-| Python         | ruff, black, flake8, pylint                  |
-| JavaScript/TS  | eslint, prettier, typescript                 |
-| Go             | gofmt                                        |
-| Rust           | rustfmt                                      |
-| Ruby           | rubocop                                      |
-| PHP            | php-cs-fixer                                 |
-| Shell          | shellcheck, shfmt, beautysh                  |
-| YAML           | yamllint, prettier                           |
-| TOML           | taplo                                        |
-| Terraform      | terraform, tflint                            |
-| Makefile       | just                                         |
-| Security       | trufflehog                                   |
-| GitHub Actions | actionlint                                   |
+| Language       | Tools                        |
+| -------------- | ---------------------------- |
+| Python         | ruff, black, flake8, pylint  |
+| JavaScript/TS  | eslint, prettier, typescript |
+| Go             | gofmt                        |
+| Rust           | rustfmt                      |
+| Ruby           | rubocop                      |
+| PHP            | php-cs-fixer                 |
+| Shell          | shellcheck, shfmt, beautysh  |
+| YAML           | yamllint, prettier           |
+| TOML           | taplo                        |
+| Terraform      | terraform, tflint            |
+| Makefile       | just                         |
+| Security       | trufflehog                   |
+| GitHub Actions | actionlint                   |

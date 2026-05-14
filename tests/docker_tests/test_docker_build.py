@@ -3,9 +3,9 @@
 Ported from features/docker_build.feature.
 """
 
+import shutil
 import subprocess
 import unittest
-import shutil
 
 from tests.docker_tests.base import PROJECT_ROOT
 
@@ -38,6 +38,4 @@ class TestDockerBuild(unittest.TestCase):
                 text=True,
                 timeout=30,
             )
-            self.assertEqual(
-                result.returncode, 0, f"Tool {tool} not found in Docker image"
-            )
+            self.assertEqual(result.returncode, 0, f"Tool {tool} not found in Docker image")

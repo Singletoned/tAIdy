@@ -14,7 +14,6 @@ class TestSecurity(DockerTestCase):
         exit_code, stdout, stderr = self.run_taidy(
             "python311-trufflehog", "lint with_secret.py", ["with_secret.py"]
         )
-        output = stdout + stderr
         # trufflehog exits 183 when it finds secrets
         self.assertIn(exit_code, (0, 183), f"Unexpected exit code {exit_code}")
 
