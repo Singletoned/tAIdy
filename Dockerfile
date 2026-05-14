@@ -75,7 +75,7 @@ RUN mkdir -p $GOBIN && \
 RUN mkdir -p /opt/bin && \
     ARCH=$(case $(uname -m) in x86_64) echo amd64;; aarch64) echo arm64;; *) echo amd64;; esac) && \
     # Install actionlint (with error handling for missing ARM64 builds)
-    (curl -L -o actionlint.tar.gz "https://github.com/rhymond/actionlint/releases/download/v1.6.26/actionlint_1.6.26_linux_${ARCH}.tar.gz" && \
+    (curl -L -o actionlint.tar.gz "https://github.com/rhysd/actionlint/releases/download/v1.6.26/actionlint_1.6.26_linux_${ARCH}.tar.gz" && \
      tar -xzf actionlint.tar.gz -C /opt/bin && rm actionlint.tar.gz) || \
     (echo "Warning: actionlint not available for ${ARCH}, skipping") && \
     # Install trufflehog (with error handling)

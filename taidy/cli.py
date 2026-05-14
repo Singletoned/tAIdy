@@ -1525,7 +1525,7 @@ def get_install_commands(platform_info: Dict[str, Any]) -> Dict[str, str]:
                         "curl -s https://raw.githubusercontent.com/terraform-linters/tflint/"
                         "master/install_linux.sh | bash"
                     ),
-                    "actionlint": "go install github.com/rhymond/actionlint@latest",
+                    "actionlint": "go install github.com/rhysd/actionlint@latest",
                     "eslint": "sudo apt install npm && npm install -g eslint",
                     "prettier": "sudo apt install npm && npm install -g prettier",
                     "tsc": "sudo apt install npm && npm install -g typescript",
@@ -1545,7 +1545,7 @@ def get_install_commands(platform_info: Dict[str, Any]) -> Dict[str, str]:
                         "curl -s https://raw.githubusercontent.com/terraform-linters/tflint/"
                         "master/install_linux.sh | bash"
                     ),
-                    "actionlint": "go install github.com/rhymond/actionlint@latest",
+                    "actionlint": "go install github.com/rhysd/actionlint@latest",
                     "eslint": f"sudo {pkg_manager} install npm && npm install -g eslint",
                     "prettier": f"sudo {pkg_manager} install npm && npm install -g prettier",
                     "tsc": f"sudo {pkg_manager} install npm && npm install -g typescript",
@@ -1561,7 +1561,7 @@ def get_install_commands(platform_info: Dict[str, Any]) -> Dict[str, str]:
                     "shfmt": "go install mvdan.cc/sh/v3/cmd/shfmt@latest",
                     "terraform": "sudo pacman -S terraform",
                     "tflint": "yay -S tflint-bin",  # AUR package
-                    "actionlint": "go install github.com/rhymond/actionlint@latest",
+                    "actionlint": "go install github.com/rhysd/actionlint@latest",
                     "eslint": "sudo pacman -S npm && npm install -g eslint",
                     "prettier": "sudo pacman -S npm && npm install -g prettier",
                     "tsc": "sudo pacman -S npm && npm install -g typescript",
@@ -1580,7 +1580,7 @@ def get_install_commands(platform_info: Dict[str, Any]) -> Dict[str, str]:
                         "curl -s https://raw.githubusercontent.com/terraform-linters/tflint/"
                         "master/install_linux.sh | bash"
                     ),
-                    "actionlint": "go install github.com/rhymond/actionlint@latest",
+                    "actionlint": "go install github.com/rhysd/actionlint@latest",
                     "eslint": "sudo zypper install npm && npm install -g eslint",
                     "prettier": "sudo zypper install npm && npm install -g prettier",
                     "tsc": "sudo zypper install npm && npm install -g typescript",
@@ -1599,7 +1599,7 @@ def get_install_commands(platform_info: Dict[str, Any]) -> Dict[str, str]:
                         "curl -s https://raw.githubusercontent.com/terraform-linters/tflint/"
                         "master/install_linux.sh | bash"
                     ),
-                    "actionlint": "go install github.com/rhymond/actionlint@latest",
+                    "actionlint": "go install github.com/rhysd/actionlint@latest",
                     "eslint": "sudo apk add npm && npm install -g eslint",
                     "prettier": "sudo apk add npm && npm install -g prettier",
                     "tsc": "sudo apk add npm && npm install -g typescript",
@@ -1615,7 +1615,7 @@ def get_install_commands(platform_info: Dict[str, Any]) -> Dict[str, str]:
                     "shfmt": "go install mvdan.cc/sh/v3/cmd/shfmt@latest",
                     "terraform": "https://terraform.io/downloads",
                     "tflint": "https://github.com/terraform-linters/tflint",
-                    "actionlint": "go install github.com/rhymond/actionlint@latest",
+                    "actionlint": "go install github.com/rhysd/actionlint@latest",
                 }
             )
     else:
@@ -1628,7 +1628,7 @@ def get_install_commands(platform_info: Dict[str, Any]) -> Dict[str, str]:
                 "shfmt": "go install mvdan.cc/sh/v3/cmd/shfmt@latest",
                 "terraform": "https://terraform.io/downloads",
                 "tflint": "https://github.com/terraform-linters/tflint",
-                "actionlint": "go install github.com/rhymond/actionlint@latest",
+                "actionlint": "go install github.com/rhysd/actionlint@latest",
             }
         )
 
