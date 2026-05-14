@@ -768,6 +768,73 @@ def discover_files_in_directory(directory_path: str) -> List[str]:
     return sorted(discovered_files)
 
 
+# Shared command lists to reduce duplication in LINTER_MAP/FORMATTER_MAP
+_prettier_check = [
+    LinterCommand(
+        available=lambda: is_command_available("prettier"),
+        command=lambda files: ("prettier", ["--check", "--log-level", "error"] + files),
+    ),
+]
+
+_prettier_write = [
+    LinterCommand(
+        available=lambda: is_command_available("prettier"),
+        command=lambda files: ("prettier", ["--write", "--log-level", "error"] + files),
+        supports_directories=True,
+    ),
+]
+
+_shell_lint = [
+    LinterCommand(
+        available=lambda: is_command_available("shellcheck"),
+        command=lambda files: ("shellcheck", ["-S", "warning"] + files),
+    ),
+    LinterCommand(
+        available=lambda: is_command_available("beautysh"),
+        command=lambda files: ("beautysh", ["--check"] + files),
+    ),
+]
+
+_shell_format = [
+    LinterCommand(
+        available=lambda: is_command_available("shfmt"),
+        command=lambda files: ("shfmt", ["-w"] + files),
+    ),
+    LinterCommand(
+        available=lambda: is_command_available("beautysh"),
+        command=lambda files: ("beautysh", files),
+    ),
+]
+
+_terraform_lint = [
+    LinterCommand(
+        available=lambda: is_command_available("terraform"),
+        command=lambda files: ("terraform", ["validate"] + files),
+    ),
+    LinterCommand(
+        available=lambda: is_command_available("tflint"),
+        command=lambda files: ("tflint", ["--quiet"] + files),
+    ),
+]
+
+_terraform_format = [
+    LinterCommand(
+        available=lambda: is_command_available("terraform"),
+        command=lambda files: ("terraform", ["fmt"] + files),
+    ),
+]
+
+_yaml_lint = [
+    LinterCommand(
+        available=lambda: is_command_available("yamllint"),
+        command=lambda files: ("yamllint", ["--quiet"] + files),
+    ),
+    LinterCommand(
+        available=lambda: is_command_available("prettier"),
+        command=lambda files: ("prettier", ["--check", "--log-level", "error"] + files),
+    ),
+]
+
 # LinterConfig maps file extensions to sequences of linter commands to try in order
 LINTER_MAP: Dict[str, List[LinterCommand]] = {
     ".py": [
@@ -862,33 +929,9 @@ LINTER_MAP: Dict[str, List[LinterCommand]] = {
             ),
         ),
     ],
-    ".json": [
-        LinterCommand(
-            available=lambda: is_command_available("prettier"),
-            command=lambda files: (
-                "prettier",
-                ["--check", "--log-level", "error"] + files,
-            ),
-        ),
-    ],
-    ".css": [
-        LinterCommand(
-            available=lambda: is_command_available("prettier"),
-            command=lambda files: (
-                "prettier",
-                ["--check", "--log-level", "error"] + files,
-            ),
-        ),
-    ],
-    ".scss": [
-        LinterCommand(
-            available=lambda: is_command_available("prettier"),
-            command=lambda files: (
-                "prettier",
-                ["--check", "--log-level", "error"] + files,
-            ),
-        ),
-    ],
+    ".json": _prettier_check,
+    ".css": _prettier_check,
+    ".scss": _prettier_check,
     ".jinja.html": [
         LinterCommand(
             available=lambda: is_command_available("djlint"),
@@ -896,24 +939,8 @@ LINTER_MAP: Dict[str, List[LinterCommand]] = {
             supports_directories=True,
         ),
     ],
-    ".html": [
-        LinterCommand(
-            available=lambda: is_command_available("prettier"),
-            command=lambda files: (
-                "prettier",
-                ["--check", "--log-level", "error"] + files,
-            ),
-        ),
-    ],
-    ".md": [
-        LinterCommand(
-            available=lambda: is_command_available("prettier"),
-            command=lambda files: (
-                "prettier",
-                ["--check", "--log-level", "error"] + files,
-            ),
-        ),
-    ],
+    ".html": _prettier_check,
+    ".md": _prettier_check,
     ".go": [
         LinterCommand(
             available=lambda: is_command_available("gofmt"),
@@ -941,88 +968,19 @@ LINTER_MAP: Dict[str, List[LinterCommand]] = {
             ),
         ),
     ],
-    ".sh": [
-        LinterCommand(
-            available=lambda: is_command_available("shellcheck"),
-            command=lambda files: ("shellcheck", ["-S", "warning"] + files),
-        ),
-        LinterCommand(
-            available=lambda: is_command_available("beautysh"),
-            command=lambda files: ("beautysh", ["--check"] + files),
-        ),
-    ],
-    ".bash": [
-        LinterCommand(
-            available=lambda: is_command_available("shellcheck"),
-            command=lambda files: ("shellcheck", ["-S", "warning"] + files),
-        ),
-        LinterCommand(
-            available=lambda: is_command_available("beautysh"),
-            command=lambda files: ("beautysh", ["--check"] + files),
-        ),
-    ],
-    ".zsh": [
-        LinterCommand(
-            available=lambda: is_command_available("shellcheck"),
-            command=lambda files: ("shellcheck", ["-S", "warning"] + files),
-        ),
-        LinterCommand(
-            available=lambda: is_command_available("beautysh"),
-            command=lambda files: ("beautysh", ["--check"] + files),
-        ),
-    ],
-    ".yaml": [
-        LinterCommand(
-            available=lambda: is_command_available("yamllint"),
-            command=lambda files: ("yamllint", ["--quiet"] + files),
-        ),
-        LinterCommand(
-            available=lambda: is_command_available("prettier"),
-            command=lambda files: (
-                "prettier",
-                ["--check", "--log-level", "error"] + files,
-            ),
-        ),
-    ],
-    ".yml": [
-        LinterCommand(
-            available=lambda: is_command_available("yamllint"),
-            command=lambda files: ("yamllint", ["--quiet"] + files),
-        ),
-        LinterCommand(
-            available=lambda: is_command_available("prettier"),
-            command=lambda files: (
-                "prettier",
-                ["--check", "--log-level", "error"] + files,
-            ),
-        ),
-    ],
+    ".sh": _shell_lint,
+    ".bash": _shell_lint,
+    ".zsh": _shell_lint,
+    ".yaml": _yaml_lint,
+    ".yml": _yaml_lint,
     ".toml": [
         LinterCommand(
             available=lambda: is_command_available("taplo"),
             command=lambda files: ("taplo", ["check"] + files),
         ),
     ],
-    ".tf": [
-        LinterCommand(
-            available=lambda: is_command_available("terraform"),
-            command=lambda files: ("terraform", ["validate"] + files),
-        ),
-        LinterCommand(
-            available=lambda: is_command_available("tflint"),
-            command=lambda files: ("tflint", ["--quiet"] + files),
-        ),
-    ],
-    ".tfvars": [
-        LinterCommand(
-            available=lambda: is_command_available("terraform"),
-            command=lambda files: ("terraform", ["validate"] + files),
-        ),
-        LinterCommand(
-            available=lambda: is_command_available("tflint"),
-            command=lambda files: ("tflint", ["--quiet"] + files),
-        ),
-    ],
+    ".tf": _terraform_lint,
+    ".tfvars": _terraform_lint,
     ".github-workflow": [
         LinterCommand(
             available=lambda: is_command_available("actionlint"),
@@ -1068,76 +1026,13 @@ FORMATTER_MAP: Dict[str, List[LinterCommand]] = {
             supports_directories=True,
         ),
     ],
-    ".js": [
-        LinterCommand(
-            available=lambda: is_command_available("prettier"),
-            command=lambda files: (
-                "prettier",
-                ["--write", "--log-level", "error"] + files,
-            ),
-            supports_directories=True,
-        ),
-    ],
-    ".jsx": [
-        LinterCommand(
-            available=lambda: is_command_available("prettier"),
-            command=lambda files: (
-                "prettier",
-                ["--write", "--log-level", "error"] + files,
-            ),
-            supports_directories=True,
-        ),
-    ],
-    ".ts": [
-        LinterCommand(
-            available=lambda: is_command_available("prettier"),
-            command=lambda files: (
-                "prettier",
-                ["--write", "--log-level", "error"] + files,
-            ),
-            supports_directories=True,
-        ),
-    ],
-    ".tsx": [
-        LinterCommand(
-            available=lambda: is_command_available("prettier"),
-            command=lambda files: (
-                "prettier",
-                ["--write", "--log-level", "error"] + files,
-            ),
-            supports_directories=True,
-        ),
-    ],
-    ".json": [
-        LinterCommand(
-            available=lambda: is_command_available("prettier"),
-            command=lambda files: (
-                "prettier",
-                ["--write", "--log-level", "error"] + files,
-            ),
-            supports_directories=True,
-        ),
-    ],
-    ".css": [
-        LinterCommand(
-            available=lambda: is_command_available("prettier"),
-            command=lambda files: (
-                "prettier",
-                ["--write", "--log-level", "error"] + files,
-            ),
-            supports_directories=True,
-        ),
-    ],
-    ".scss": [
-        LinterCommand(
-            available=lambda: is_command_available("prettier"),
-            command=lambda files: (
-                "prettier",
-                ["--write", "--log-level", "error"] + files,
-            ),
-            supports_directories=True,
-        ),
-    ],
+    ".js": _prettier_write,
+    ".jsx": _prettier_write,
+    ".ts": _prettier_write,
+    ".tsx": _prettier_write,
+    ".json": _prettier_write,
+    ".css": _prettier_write,
+    ".scss": _prettier_write,
     ".jinja.html": [
         LinterCommand(
             available=lambda: is_command_available("djlint"),
@@ -1145,26 +1040,8 @@ FORMATTER_MAP: Dict[str, List[LinterCommand]] = {
             supports_directories=True,
         ),
     ],
-    ".html": [
-        LinterCommand(
-            available=lambda: is_command_available("prettier"),
-            command=lambda files: (
-                "prettier",
-                ["--write", "--log-level", "error"] + files,
-            ),
-            supports_directories=True,
-        ),
-    ],
-    ".md": [
-        LinterCommand(
-            available=lambda: is_command_available("prettier"),
-            command=lambda files: (
-                "prettier",
-                ["--write", "--log-level", "error"] + files,
-            ),
-            supports_directories=True,
-        ),
-    ],
+    ".html": _prettier_write,
+    ".md": _prettier_write,
     ".pug": [
         LinterCommand(
             available=lambda: is_command_available("node") and is_command_available("npm"),
@@ -1199,84 +1076,20 @@ FORMATTER_MAP: Dict[str, List[LinterCommand]] = {
             command=lambda files: ("php-cs-fixer", ["fix", "--quiet"] + files),
         ),
     ],
-    ".sh": [
-        LinterCommand(
-            available=lambda: is_command_available("shfmt"),
-            command=lambda files: ("shfmt", ["-w"] + files),
-        ),
-        LinterCommand(
-            available=lambda: is_command_available("beautysh"),
-            command=lambda files: ("beautysh", files),
-        ),
-    ],
-    ".bash": [
-        LinterCommand(
-            available=lambda: is_command_available("shfmt"),
-            command=lambda files: ("shfmt", ["-w"] + files),
-        ),
-        LinterCommand(
-            available=lambda: is_command_available("beautysh"),
-            command=lambda files: ("beautysh", files),
-        ),
-    ],
-    ".zsh": [
-        LinterCommand(
-            available=lambda: is_command_available("shfmt"),
-            command=lambda files: ("shfmt", ["-w"] + files),
-        ),
-        LinterCommand(
-            available=lambda: is_command_available("beautysh"),
-            command=lambda files: ("beautysh", files),
-        ),
-    ],
-    ".yaml": [
-        LinterCommand(
-            available=lambda: is_command_available("prettier"),
-            command=lambda files: (
-                "prettier",
-                ["--write", "--log-level", "error"] + files,
-            ),
-            supports_directories=True,
-        ),
-    ],
-    ".yml": [
-        LinterCommand(
-            available=lambda: is_command_available("prettier"),
-            command=lambda files: (
-                "prettier",
-                ["--write", "--log-level", "error"] + files,
-            ),
-            supports_directories=True,
-        ),
-    ],
+    ".sh": _shell_format,
+    ".bash": _shell_format,
+    ".zsh": _shell_format,
+    ".yaml": _prettier_write,
+    ".yml": _prettier_write,
     ".toml": [
         LinterCommand(
             available=lambda: is_command_available("taplo"),
             command=lambda files: ("taplo", ["format"] + files),
         ),
     ],
-    ".tf": [
-        LinterCommand(
-            available=lambda: is_command_available("terraform"),
-            command=lambda files: ("terraform", ["fmt"] + files),
-        ),
-    ],
-    ".tfvars": [
-        LinterCommand(
-            available=lambda: is_command_available("terraform"),
-            command=lambda files: ("terraform", ["fmt"] + files),
-        ),
-    ],
-    ".github-workflow": [
-        LinterCommand(
-            available=lambda: is_command_available("prettier"),
-            command=lambda files: (
-                "prettier",
-                ["--write", "--log-level", "error"] + files,
-            ),
-            supports_directories=True,
-        ),
-    ],
+    ".tf": _terraform_format,
+    ".tfvars": _terraform_format,
+    ".github-workflow": _prettier_write,
     "makefile": [
         LinterCommand(
             available=lambda: is_command_available("mbake"),
