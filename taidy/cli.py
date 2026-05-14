@@ -18,10 +18,6 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 from taidy import __version__ as VERSION
 
-# Build information - can be overridden at build time
-GIT_COMMIT = "unknown"
-BUILD_DATE = "unknown"
-
 # Help text constants
 USAGE_TEXT = """
 Usage: taidy [flags] [command] <files_or_directories...>
@@ -96,6 +92,35 @@ logger = logging.getLogger(__name__)
 JUSTFILE_NAMES: Set[str] = {"justfile", "justfile.just"}
 MAKEFILE_NAMES: Set[str] = {"makefile", "gnumakefile"}
 JINJA_HTML_SUFFIX = ".jinja.html"
+
+# Extensions eligible for security scanning (trufflehog)
+SECURITY_EXTENSIONS: Set[str] = {
+    ".py",
+    ".js",
+    ".jsx",
+    ".ts",
+    ".tsx",
+    ".go",
+    ".rs",
+    ".rb",
+    ".php",
+    ".sh",
+    ".bash",
+    ".zsh",
+    ".yaml",
+    ".yml",
+    ".json",
+    ".toml",
+    ".tf",
+    ".tfvars",
+    ".env",
+    ".txt",
+    ".md",
+    ".sql",
+    ".xml",
+    ".html",
+    ".css",
+}
 
 # Extensions that are inherently unlintable/unformattable (binary/opaque assets)
 ALWAYS_UNFORMATTABLE_EXTENSIONS: Set[str] = {
@@ -517,154 +542,9 @@ def get_platform_info() -> Dict[str, Any]:
     return info
 
 
-def get_package_name(tool: str, distribution: str) -> Optional[str]:
-    """Get the package name for a tool on a specific distribution"""
-    # Package name mappings for different distributions
-    package_mappings = {
-        "ubuntu": {
-            "shellcheck": "shellcheck",
-            "yamllint": "yamllint",
-            "nodejs": "nodejs",
-            "npm": "npm",
-            "tsc": "typescript",  # This would be installed via npm
-            "go": "golang-go",
-            "rust": "rustc",
-            "cargo": "cargo",
-            "ruby": "ruby",
-            "php": "php",
-            "composer": "composer",
-            "python3": "python3",
-            "pip": "python3-pip",
-            "docker": "docker.io",
-        },
-        "debian": {
-            "shellcheck": "shellcheck",
-            "yamllint": "yamllint",
-            "nodejs": "nodejs",
-            "npm": "npm",
-            "tsc": "typescript",
-            "go": "golang-go",
-            "rust": "rustc",
-            "cargo": "cargo",
-            "ruby": "ruby",
-            "php": "php",
-            "composer": "composer",
-            "python3": "python3",
-            "pip": "python3-pip",
-            "docker": "docker.io",
-        },
-        "fedora": {
-            "shellcheck": "ShellCheck",
-            "yamllint": "yamllint",
-            "nodejs": "nodejs",
-            "npm": "npm",
-            "tsc": "typescript",
-            "go": "golang",
-            "rust": "rust",
-            "cargo": "cargo",
-            "ruby": "ruby",
-            "php": "php",
-            "composer": "composer",
-            "python3": "python3",
-            "pip": "python3-pip",
-            "docker": "docker",
-        },
-        "rhel": {
-            "shellcheck": "ShellCheck",
-            "yamllint": "yamllint",
-            "nodejs": "nodejs",
-            "npm": "npm",
-            "tsc": "typescript",
-            "go": "golang",
-            "rust": "rust",
-            "cargo": "cargo",
-            "ruby": "ruby",
-            "php": "php",
-            "composer": "composer",
-            "python3": "python3",
-            "pip": "python3-pip",
-            "docker": "docker",
-        },
-        "centos": {
-            "shellcheck": "ShellCheck",
-            "yamllint": "yamllint",
-            "nodejs": "nodejs",
-            "npm": "npm",
-            "tsc": "typescript",
-            "go": "golang",
-            "rust": "rust",
-            "cargo": "cargo",
-            "ruby": "ruby",
-            "php": "php",
-            "composer": "composer",
-            "python3": "python3",
-            "pip": "python3-pip",
-            "docker": "docker",
-        },
-        "arch": {
-            "shellcheck": "shellcheck",
-            "yamllint": "yamllint",
-            "nodejs": "nodejs",
-            "npm": "npm",
-            "tsc": "typescript",
-            "go": "go",
-            "rust": "rust",
-            "cargo": "rust",  # cargo comes with rust package
-            "ruby": "ruby",
-            "php": "php",
-            "composer": "composer",
-            "python3": "python",
-            "pip": "python-pip",
-            "docker": "docker",
-        },
-        "opensuse": {
-            "shellcheck": "ShellCheck",
-            "yamllint": "yamllint",
-            "nodejs": "nodejs",
-            "npm": "npm",
-            "tsc": "typescript",
-            "go": "go",
-            "rust": "rust",
-            "cargo": "cargo",
-            "ruby": "ruby",
-            "php": "php",
-            "composer": "composer",
-            "python3": "python3",
-            "pip": "python3-pip",
-            "docker": "docker",
-        },
-        "alpine": {
-            "shellcheck": "shellcheck",
-            "yamllint": "yamllint",
-            "nodejs": "nodejs",
-            "npm": "npm",
-            "tsc": "typescript",
-            "go": "go",
-            "rust": "rust",
-            "cargo": "cargo",
-            "ruby": "ruby",
-            "php": "php",
-            "composer": "composer",
-            "python3": "python3",
-            "pip": "py3-pip",
-            "docker": "docker",
-        },
-    }
-
-    if distribution in package_mappings:
-        return package_mappings[distribution].get(tool)
-
-    return None
-
-
 def is_git_repository(directory: Path) -> bool:
     """Check if a directory is inside a git repository"""
-    current = directory.resolve()
-    while current != current.parent:
-        if (current / ".git").exists():
-            return True
-        current = current.parent
-    return False
+    return find_git_root(directory) is not None
 
 
 def find_git_root(directory: Path) -> Optional[Path]:
@@ -877,35 +757,7 @@ def discover_files_in_directory(directory_path: str) -> List[str]:
 
         # Special case: Security scanning - include all files if trufflehog is available
         if not is_supported and is_command_available("trufflehog"):
-            # Include most common file types for security scanning
-            security_extensions = {
-                ".py",
-                ".js",
-                ".jsx",
-                ".ts",
-                ".tsx",
-                ".go",
-                ".rs",
-                ".rb",
-                ".php",
-                ".sh",
-                ".bash",
-                ".zsh",
-                ".yaml",
-                ".yml",
-                ".json",
-                ".toml",
-                ".tf",
-                ".tfvars",
-                ".env",
-                ".txt",
-                ".md",
-                ".sql",
-                ".xml",
-                ".html",
-                ".css",
-            }
-            if ext in security_extensions or file_path.name.startswith(".env"):
+            if ext in SECURITY_EXTENSIONS or file_path.name.startswith(".env"):
                 is_supported = True
 
         if not is_supported:
@@ -1457,10 +1309,6 @@ def show_help() -> None:
 def show_version() -> None:
     """Show version information"""
     print(f"Taidy {VERSION}")
-    if GIT_COMMIT != "unknown":
-        print(f"Git commit: {GIT_COMMIT}")
-    if BUILD_DATE != "unknown":
-        print(f"Built: {BUILD_DATE}")
 
 
 # Thread-safe output lock
@@ -1531,98 +1379,6 @@ def execute_batched_command(
         with output_lock:
             logger.error(f"Error executing {cmd}: {e}")
         return 1  # General error
-
-
-def execute_linters(commands: List[LinterCommand], file_list: List[str]) -> int:
-    """Try each command in order until one is available"""
-    for linter_cmd in commands:
-        if linter_cmd.available():
-            cmd, args = linter_cmd.command(file_list)
-
-            with output_lock:
-                logger.info(f"Running: {cmd} {' '.join(args)}")
-
-            try:
-                # Set environment for taplo to suppress info messages
-                env = os.environ.copy()
-                if cmd == "taplo":
-                    env["RUST_LOG"] = "warn"
-
-                result = subprocess.run([cmd] + args, capture_output=True, text=True, env=env)
-
-                # Print output atomically to avoid mixing
-                with output_lock:
-                    if result.stdout:
-                        print(result.stdout, end="", flush=True)
-                    if result.stderr:
-                        print(result.stderr, end="", file=sys.stderr, flush=True)
-
-                return result.returncode
-            except FileNotFoundError:
-                with output_lock:
-                    logger.error(f"Error executing {cmd}: command not found")
-                return 127  # Standard exit code for command not found
-            except Exception as e:
-                with output_lock:
-                    logger.error(f"Error executing {cmd}: {e}")
-                return 1  # General error
-
-    return 2  # No available command found
-
-
-def process_file_group(
-    ext: str,
-    file_list: List[str],
-    mode: Mode,
-    original_dirs: Optional[List[str]] = None,
-    has_custom_ignores: bool = False,
-) -> int:
-    """Process a group of files with the same extension"""
-    exit_code = 0
-
-    if mode in [Mode.LINT, Mode.BOTH]:
-        if ext in LINTER_MAP:
-            # Check if we can use directory processing for linters
-            inputs = file_list
-            if original_dirs and not has_custom_ignores:
-                # Find the first available linter that supports directories
-                for linter_cmd in LINTER_MAP[ext]:
-                    if linter_cmd.available() and linter_cmd.supports_directories:
-                        inputs = original_dirs
-                        break
-
-            result = execute_linters(LINTER_MAP[ext], inputs)
-            if result == 2:
-                with output_lock:
-                    logger.warning(
-                        f"No available linter found for {ext} files. "
-                        "Run 'taidy suggest' for tool recommendations."
-                    )
-            elif result != 0:
-                exit_code = result
-
-    if mode in [Mode.FORMAT, Mode.BOTH]:
-        if ext in FORMATTER_MAP:
-            # Check if we can use directory processing for formatters
-            inputs = file_list
-            if original_dirs and not has_custom_ignores:
-                # Find the first available formatter that supports directories
-                for formatter_cmd in FORMATTER_MAP[ext]:
-                    if formatter_cmd.available() and formatter_cmd.supports_directories:
-                        inputs = original_dirs
-                        break
-
-            result = execute_linters(FORMATTER_MAP[ext], inputs)
-            if result == 2:
-                with output_lock:
-                    logger.warning(
-                        f"No available formatter found for {ext} files. "
-                        "Run 'taidy suggest' for tool recommendations."
-                    )
-            elif result != 0:
-                exit_code = result
-
-    return exit_code
 
 
 def process_files(files: List[str], mode: Mode, dry_run: bool = False) -> ProcessingResult:
@@ -1711,34 +1467,7 @@ def process_files(files: List[str], mode: Mode, dry_run: bool = False) -> Proces
             and len(input_directories) == 1
             and len(files) == 1
         ):
-            security_extensions = {
-                ".py",
-                ".js",
-                ".jsx",
-                ".ts",
-                ".tsx",
-                ".go",
-                ".rs",
-                ".rb",
-                ".php",
-                ".sh",
-                ".bash",
-                ".zsh",
-                ".yaml",
-                ".yml",
-                ".json",
-                ".toml",
-                ".tf",
-                ".tfvars",
-                ".env",
-                ".txt",
-                ".md",
-                ".sql",
-                ".xml",
-                ".html",
-                ".css",
-            }
-            if ext in security_extensions or file_path.name.startswith(".env"):
+            if ext in SECURITY_EXTENSIONS or file_path.name.startswith(".env"):
                 if ".security" not in file_groups:
                     file_groups[".security"] = []
                 file_groups[".security"].append(file)
