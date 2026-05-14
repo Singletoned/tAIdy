@@ -157,45 +157,41 @@ For example, with a Python file:
 
 ### Requirements
 
-- Python 3.6+
-- [just](https://github.com/casey/just) (for build scripts)
-- Docker (for integration tests)
+- Python 3.8+
+- [just](https://github.com/casey/just) (for running recipes)
+- Docker (for Docker-based integration tests, optional)
 
 ### Building
 
 ```bash
-# Install in development mode
-just install-dev
-
 # Build distribution packages
 just dist
 
-# Run all tests
+# Run fast tests (unit + integration)
 just test
 
-# Run tests with coverage
-just test-coverage
+# Run all tests including Docker-based tests
+just test-all
 
-# Run specific feature test
-just test-feature features/python.feature
+# Type checking
+just typecheck
 
 # Lint and format code
 just check
-
-# Build for release
-just build-release
 ```
 
 ### Testing
 
-The project uses Behavior Driven Development (BDD) with [Godog](https://github.com/cucumber/godog) and [testcontainers](https://golang.testcontainers.org/).
+Three test layers, all Python:
+
+- **Unit tests** (`tests/unit/`): Fast, mocked subprocess calls
+- **Integration tests** (`tests/integration/`): Config and filesystem operations
+- **Docker tests** (`tests/docker_tests/`): End-to-end in containers with real tools
 
 ```bash
-# Run all tests
-just test
-
-# Run specific feature
-just test-feature features/python.feature
+just test          # Unit + integration (fast)
+just test-docker   # Docker tests only
+just test-all      # Everything
 ```
 
 ## Contributing

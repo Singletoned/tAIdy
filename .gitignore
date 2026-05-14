@@ -1,21 +1,13 @@
-# Binaries for programs and plugins
-*.exe
-*.exe~
-*.dll
-*.so
-*.dylib
-
-# Output of the go coverage tool, specifically when used with LiteIDE
-*.out
-
-# Go workspace file
-go.work
-
 # Build artifacts
 dist/
 *.tar.gz
 *.zip
 *.egg-info/
+
+# Python
+*.pyc
+__pycache__/
+.mypy_cache/
 
 # IDE files
 .vscode/
@@ -33,21 +25,14 @@ dist/
 ehthumbs.db
 Thumbs.db
 
-# Test coverage
+# Test
+/tests/*.log
+/tests/testcontainer_test
 coverage.html
-coverage.out
 
 # Temporary files
 *.tmp
 *.bak
-
-# Test logs
-/tests/*.log
-/tests/testcontainer_test
-*.pyc
-
-# MyPy cache
-.mypy_cache/
 
 # Claude settings
 .claude/settings.local.json

@@ -11,7 +11,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - CLI package structure supporting both `taidy filename` and `python -m taidy filename` execution
 - Installable Python package via pip with console script entry point
-- setup.py for package distribution and installation
 - Development installation support with `pip install -e .`
 
 ### Changed
@@ -19,14 +18,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Converted from standalone script to proper Python package structure
 - Tests now use `python -m taidy` in Docker containers
 - Build system validates package structure instead of single script
-- Added package installation commands to justfile
-
-### Technical Details
-
-- Package structure: `taidy/__init__.py`, `taidy/cli.py`, `taidy/__main__.py`
-- Console script entry point: `taidy=taidy.cli:main`
-- Module execution support via `__main__.py`
-- Docker containers set `PYTHONPATH=/app` for package imports
 
 ## [0.1.0] - 2024-12-26
 
@@ -46,7 +37,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Web files: prettier (JSON, CSS, HTML, Markdown)
 - Command-line interface with lint, format, and both modes
 - Version and help flags
-- Comprehensive BDD test suite using Godog and Docker containers
+- Docker-based integration test suite
 
 ### Changed
 
@@ -65,17 +56,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Technical Details
 
-- Python 3.6+ required for type hints and f-strings
-- Tests remain in Go using Godog framework for BDD testing
+- Python 3.8+ required
 - Docker containers automatically include Python 3 and required tools
-- Single Python file implementation (~400 lines)
+- Single Python file implementation
 - Zero external configuration files - tool chains defined in code
 - Maintains same priority-based tool detection as original Go version
-
-### Testing
-
-- All 21 test scenarios pass (114 test steps)
-- Docker-based isolated test environments
-- Support for multiple tool environments (ruff, black, prettier, etc.)
-- CLI usage and error handling verification
-- Cross-language linting and formatting validation
