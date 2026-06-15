@@ -38,7 +38,3 @@ coverage.html
 .claude/settings.local.json
 CLAUDE.md
 AGENTS.md
-
-# Beads issue tracking
-.beads/
-.gitattributes
