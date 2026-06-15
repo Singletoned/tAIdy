@@ -18,6 +18,8 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 
 from taidy import __version__ as VERSION
 
+CommandSignature = Tuple[str, Tuple[str, ...]]
+
 # Help text constants
 USAGE_TEXT = """
 Usage: taidy [flags] [command] <files_or_directories...>
@@ -624,7 +626,7 @@ def should_ignore_file(file_path: Path, ignore_patterns: List[str]) -> bool:
 
 def _get_logger_level() -> int:
     """Return a usable numeric log level even when logger is patched."""
-    level = logger.getEffectiveLevel()
+    level: Any = logger.getEffectiveLevel()
     if isinstance(level, int):
         return level
     return logging.WARNING
@@ -1128,9 +1130,7 @@ def show_version() -> None:
 output_lock = threading.Lock()
 
 
-def execute_batched_command(
-    cmd_signature: Tuple[str, Tuple[str, ...]], file_list: List[str]
-) -> int:
+def execute_batched_command(cmd_signature: CommandSignature, file_list: List[str]) -> int:
     """Execute a batched command with deduplicated file list"""
     cmd, base_args = cmd_signature
 
@@ -1192,6 +1192,82 @@ def execute_batched_command(
         with output_lock:
             logger.error(f"Error executing {cmd}: {e}")
         return 1  # General error
+
+
+def _add_command_batch(
+    command_batches: Dict[CommandSignature, List[str]],
+    linter_cmd: LinterCommand,
+    file_list: List[str],
+    input_directories: List[str],
+    has_custom_ignores: bool,
+) -> None:
+    inputs = file_list
+    if input_directories and not has_custom_ignores and linter_cmd.supports_directories:
+        inputs = input_directories
+
+    cmd, args = linter_cmd.command(inputs)
+    base_args = [arg for arg in args if arg not in inputs]
+    cmd_signature = (cmd, tuple(base_args))
+
+    if cmd_signature not in command_batches:
+        command_batches[cmd_signature] = []
+    command_batches[cmd_signature].extend(inputs)
+
+
+def _render_command(cmd_signature: CommandSignature, file_list: List[str]) -> str:
+    cmd, base_args = cmd_signature
+    unique_files = list(dict.fromkeys(file_list))
+    if cmd == "just" and "--fmt" in base_args:
+        args = list(base_args)
+    elif cmd == "trufflehog" and "git" in base_args:
+        args = list(base_args)
+    else:
+        args = list(base_args) + unique_files
+    return f"{cmd} {' '.join(args)}"
+
+
+def _execute_command_phase(
+    command_batches: Dict[CommandSignature, List[str]],
+    phase_name: str,
+) -> Tuple[int, List[str]]:
+    if not command_batches:
+        return 0, []
+
+    errors = []
+    exit_code = 0
+
+    logger.info(f"Starting {phase_name} phase")
+    with ThreadPoolExecutor(max_workers=min(len(command_batches), os.cpu_count() or 1)) as executor:
+        future_to_cmd = {
+            executor.submit(
+                execute_batched_command,
+                cmd_signature,
+                file_list,
+            ): cmd_signature
+            for cmd_signature, file_list in command_batches.items()
+        }
+
+        failed_batches = []
+        for future in as_completed(future_to_cmd):
+            cmd_signature = future_to_cmd[future]
+            try:
+                result = future.result()
+                if result != 0:
+                    failed_batches.append(cmd_signature)
+            except Exception as e:
+                with output_lock:
+                    logger.error(f"Error executing {cmd_signature[0]}: {e}")
+                failed_batches.append(cmd_signature)
+
+    for cmd_signature in failed_batches:
+        rendered_command = _render_command(cmd_signature, command_batches[cmd_signature])
+        logger.info(f"Rerunning failed {phase_name} command: {rendered_command}")
+        result = execute_batched_command(cmd_signature, command_batches[cmd_signature])
+        if result != 0:
+            exit_code = result
+            errors.append(f"{cmd_signature[0]} failed with exit code {result}")
+
+    return exit_code, errors
 
 
 def process_files(files: List[str], mode: Mode, dry_run: bool = False) -> ProcessingResult:
@@ -1291,7 +1367,8 @@ def process_files(files: List[str], mode: Mode, dry_run: bool = False) -> Proces
         return ProcessingResult(files_processed=0, exit_code=0, tools_used=[], errors=[])
 
     # Batch commands by their command signature to avoid duplicate runs
-    command_batches: Dict[Tuple[str, Tuple[str, ...]], List[str]] = {}
+    lint_batches: Dict[CommandSignature, List[str]] = {}
+    format_batches: Dict[CommandSignature, List[str]] = {}
 
     # Collect all commands that would be run
     for ext, file_list in file_groups.items():
@@ -1299,73 +1376,53 @@ def process_files(files: List[str], mode: Mode, dry_run: bool = False) -> Proces
         if mode in [Mode.LINT, Mode.BOTH] and ext in LINTER_MAP:
             for linter_cmd in LINTER_MAP[ext]:
                 if linter_cmd.available():
-                    # Use directory if supported and no custom ignores
-                    inputs = file_list
-                    if (
-                        input_directories
-                        and not has_custom_ignores
-                        and linter_cmd.supports_directories
-                    ):
-                        inputs = input_directories
-
-                    cmd, args = linter_cmd.command(inputs)
-                    # Create a signature excluding the file arguments
-                    base_args = [arg for arg in args if arg not in inputs]
-                    cmd_signature = (cmd, tuple(base_args))
-
-                    if cmd_signature not in command_batches:
-                        command_batches[cmd_signature] = []
-                    command_batches[cmd_signature].extend(inputs)
+                    _add_command_batch(
+                        lint_batches,
+                        linter_cmd,
+                        file_list,
+                        input_directories,
+                        has_custom_ignores,
+                    )
                     break  # Only use the first available command
 
         # Process formatting commands
         if mode in [Mode.FORMAT, Mode.BOTH] and ext in FORMATTER_MAP:
             for formatter_cmd in FORMATTER_MAP[ext]:
                 if formatter_cmd.available():
-                    # Use directory if supported and no custom ignores
-                    inputs = file_list
-                    if (
-                        input_directories
-                        and not has_custom_ignores
-                        and formatter_cmd.supports_directories
-                    ):
-                        inputs = input_directories
-
-                    cmd, args = formatter_cmd.command(inputs)
-                    # Create a signature excluding the file arguments
-                    base_args = [arg for arg in args if arg not in inputs]
-                    cmd_signature = (cmd, tuple(base_args))
-
-                    if cmd_signature not in command_batches:
-                        command_batches[cmd_signature] = []
-                    command_batches[cmd_signature].extend(inputs)
+                    _add_command_batch(
+                        format_batches,
+                        formatter_cmd,
+                        file_list,
+                        input_directories,
+                        has_custom_ignores,
+                    )
                     break  # Only use the first available command
 
     # Track tools used
-    for cmd_signature in command_batches.keys():
+    command_batches = list(format_batches.items()) + list(lint_batches.items())
+    for cmd_signature, _ in command_batches:
         cmd = cmd_signature[0]
         if cmd not in tools_used:
             tools_used.append(cmd)
 
     # Count files processed (unique files across all batches)
     all_files = set()
-    for file_list in command_batches.values():
+    for _, file_list in command_batches:
         all_files.update(file_list)
     files_processed = len(all_files)
 
     # Handle dry-run mode
     if dry_run:
         print("Dry run - commands that would be executed:")
-        for cmd_signature, file_list in command_batches.items():
-            cmd, base_args = cmd_signature
-            unique_files = list(dict.fromkeys(file_list))  # Preserve order, remove duplicates
-            if cmd == "just" and "--fmt" in base_args:
-                args = list(base_args)
-            elif cmd == "trufflehog" and "git" in base_args:
-                args = list(base_args)
-            else:
-                args = list(base_args) + unique_files
-            print(f"  {cmd} {' '.join(args)}")
+        phase_batches = []
+        if format_batches:
+            phase_batches.append(("format", format_batches))
+        if lint_batches:
+            phase_batches.append(("lint", lint_batches))
+        for phase_name, batches in phase_batches:
+            print(f"{phase_name}:")
+            for cmd_signature, file_list in batches.items():
+                print(f"  {_render_command(cmd_signature, file_list)}")
         return ProcessingResult(
             files_processed=files_processed,
             exit_code=0,
@@ -1373,34 +1430,14 @@ def process_files(files: List[str], mode: Mode, dry_run: bool = False) -> Proces
             errors=[],
         )
 
-    # Execute batched commands
     exit_code = 0
-
-    # Use ThreadPoolExecutor for parallel processing
-    with ThreadPoolExecutor(max_workers=min(len(command_batches), os.cpu_count() or 1)) as executor:
-        # Submit all batched commands for processing
-        future_to_cmd = {
-            executor.submit(
-                execute_batched_command,
-                cmd_signature,
-                file_list,
-            ): cmd_signature
-            for cmd_signature, file_list in command_batches.items()
-        }
-
-        # Collect results as they complete
-        for future in as_completed(future_to_cmd):
-            cmd_signature = future_to_cmd[future]
-            try:
-                result = future.result()
-                if result != 0:
-                    exit_code = result
-                    errors.append(f"{cmd_signature[0]} failed with exit code {result}")
-            except Exception as e:
-                with output_lock:
-                    logger.error(f"Error executing {cmd_signature[0]}: {e}")
-                exit_code = 1
-                errors.append(f"Error executing {cmd_signature[0]}: {e}")
+    for phase_name, batches in [("format", format_batches), ("lint", lint_batches)]:
+        phase_exit_code, phase_errors = _execute_command_phase(batches, phase_name)
+        if phase_exit_code != 0:
+            exit_code = phase_exit_code
+        errors.extend(phase_errors)
+        if phase_exit_code != 0:
+            break
 
     return ProcessingResult(
         files_processed=files_processed,

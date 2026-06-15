@@ -12,8 +12,10 @@ from unittest.mock import MagicMock, patch
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
 from taidy.cli import (
+    Mode,
     _get_trufflehog_command,
     execute_batched_command,
+    process_files,
 )
 
 
@@ -274,6 +276,64 @@ class TestTrufflehogCommand(unittest.TestCase):
         self.assertEqual(cmd, "trufflehog")
         self.assertEqual(args[0], "git")
         self.assertEqual(args[-1], Path("/path/with space/repo").resolve().as_uri())
+
+
+class TestProcessFilesOrchestration(unittest.TestCase):
+    """Test process-level command scheduling."""
+
+    @patch("taidy.cli.is_command_available", return_value=True)
+    @patch("taidy.cli.os.path.isdir", return_value=False)
+    @patch("taidy.cli.os.path.exists", return_value=True)
+    @patch("taidy.cli.execute_batched_command")
+    def test_default_mode_formats_before_linting(
+        self, mock_execute, mock_exists, mock_isdir, mock_available
+    ):
+        """Default mode should not run formatter and linter batches concurrently."""
+        calls = []
+
+        def record_call(cmd_signature, file_list):
+            calls.append(cmd_signature)
+            return 0
+
+        mock_execute.side_effect = record_call
+
+        result = process_files(["app.py"], Mode.BOTH)
+
+        self.assertEqual(result.exit_code, 0)
+        self.assertEqual(calls[0], ("ruff", ("format", "--quiet")))
+        self.assertEqual(calls[1], ("ruff", ("check", "--quiet")))
+
+    @patch("taidy.cli.is_command_available", return_value=True)
+    @patch("taidy.cli.os.path.isdir", return_value=False)
+    @patch("taidy.cli.os.path.exists", return_value=True)
+    @patch("taidy.cli.execute_batched_command")
+    def test_failed_command_is_rerun_before_reporting_failure(
+        self, mock_execute, mock_exists, mock_isdir, mock_available
+    ):
+        """Fix-capable tools should get one settling rerun before taidy fails."""
+        mock_execute.side_effect = [1, 0]
+
+        result = process_files(["app.py"], Mode.FORMAT)
+
+        self.assertEqual(result.exit_code, 0)
+        self.assertEqual(result.errors, [])
+        self.assertEqual(mock_execute.call_count, 2)
+
+    @patch("taidy.cli.is_command_available", return_value=True)
+    @patch("taidy.cli.os.path.isdir", return_value=False)
+    @patch("taidy.cli.os.path.exists", return_value=True)
+    @patch("taidy.cli.execute_batched_command")
+    def test_default_mode_stops_if_formatting_still_fails(
+        self, mock_execute, mock_exists, mock_isdir, mock_available
+    ):
+        """Linting should not run after a formatter fails its settling rerun."""
+        mock_execute.side_effect = [1, 1]
+
+        result = process_files(["app.py"], Mode.BOTH)
+
+        self.assertEqual(result.exit_code, 1)
+        self.assertEqual(result.errors, ["ruff failed with exit code 1"])
+        self.assertEqual(mock_execute.call_count, 2)
 
 
 if __name__ == "__main__":
