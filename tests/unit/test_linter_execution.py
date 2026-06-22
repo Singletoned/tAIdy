@@ -335,6 +335,22 @@ class TestProcessFilesOrchestration(unittest.TestCase):
         self.assertEqual(result.errors, ["ruff failed with exit code 1"])
         self.assertEqual(mock_execute.call_count, 2)
 
+    @patch("taidy.cli.discover_files_in_directory", return_value=["src/app.py"])
+    @patch("taidy.cli.is_command_available", return_value=True)
+    @patch("taidy.cli.os.path.isdir", return_value=True)
+    @patch("taidy.cli.os.path.exists", return_value=True)
+    @patch("taidy.cli.execute_batched_command")
+    def test_directory_capable_tools_receive_directory_inputs(
+        self, mock_execute, mock_exists, mock_isdir, mock_available, mock_discover
+    ):
+        """Directory-capable tools should own traversal for directory inputs."""
+        mock_execute.return_value = 0
+
+        result = process_files(["."], Mode.FORMAT)
+
+        self.assertEqual(result.exit_code, 0)
+        mock_execute.assert_called_once_with(("ruff", ("format", "--quiet")), ["."])
+
 
 if __name__ == "__main__":
     unittest.main()

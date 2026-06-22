@@ -7,7 +7,7 @@ Mostly written by AI (Claude Code and Aider).
 ## Features
 
 - **Automatic Tool Detection**: Tries multiple linters/formatters in priority order
-- **Zero Configuration**: Works out of the box (but respects existing config)
+- **Zero Configuration**: Works out of the box and delegates to each tool's own config
 - **Extensible**: Easy to add support for new languages and tools
 - **Python Package**: Easy to install with pip, or run directly with Python
 - **Smart Fallbacks**: Gracefully falls back when preferred tools aren't available

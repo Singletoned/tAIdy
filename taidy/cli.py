@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 """Taidy CLI - Smart linter/formatter with automatic tool detection."""
 
-import fnmatch
 import json
 import logging
 import os
@@ -75,18 +74,6 @@ SUPPORTED_LANGUAGES_TEXT = """Supported file types and linters:
   Security:     trufflehog (scans for secrets across all file types)
 
 Taidy automatically detects which linters are available and uses the best one for each file type."""
-
-CONFIGURATION_TEXT = """Configuration:
-  Create a .taidy.json file in your project root to customize behavior.
-  Example configuration:
-    {
-      "ignore": [
-        "tests/fixtures/*",
-        "vendor/**",
-        "*.generated.*"
-      ]
-    }
-""".strip()
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -584,46 +571,6 @@ def get_git_ignored_files(git_root: Path) -> Set[Path]:
     return ignored_files
 
 
-def load_config(start_path: str = ".") -> Dict[str, Any]:
-    """Load configuration from .taidy.json file, searching up directory tree"""
-    current_path = Path(start_path).resolve()
-
-    # Search up directory tree for .taidy.json
-    for path in [current_path] + list(current_path.parents):
-        config_file = path / ".taidy.json"
-        if config_file.exists():
-            try:
-                with open(config_file, "r") as f:
-                    config = json.load(f) or {}
-                    return config
-            except Exception as e:
-                logger.warning(f"Failed to parse {config_file}: {e}")
-                return {}
-
-    return {}
-
-
-def should_ignore_file(file_path: Path, ignore_patterns: List[str]) -> bool:
-    """Check if a file should be ignored based on ignore patterns"""
-    file_str = str(file_path)
-
-    for pattern in ignore_patterns:
-        # Check if pattern matches the full path
-        if fnmatch.fnmatch(file_str, pattern):
-            return True
-
-        # Check if pattern matches any part of the path
-        if fnmatch.fnmatch(file_path.name, pattern):
-            return True
-
-        # Check if any parent directory matches the pattern
-        for part in file_path.parts:
-            if fnmatch.fnmatch(part, pattern):
-                return True
-
-    return False
-
-
 def _get_logger_level() -> int:
     """Return a usable numeric log level even when logger is patched."""
     level: Any = logger.getEffectiveLevel()
@@ -692,12 +639,8 @@ def discover_files_in_directory(directory_path: str) -> List[str]:
     supported_extensions.update(LINTER_MAP.keys())
     supported_extensions.update(FORMATTER_MAP.keys())
 
-    # Load config and get ignore patterns
-    config = load_config(directory_path)
-    config_ignores = config.get("ignore", [])
-
     # Common directories to ignore (defaults)
-    default_ignore_patterns = [
+    default_ignore_directories = {
         ".git",
         "node_modules",
         "__pycache__",
@@ -712,10 +655,7 @@ def discover_files_in_directory(directory_path: str) -> List[str]:
         ".mypy_cache",
         ".ruff_cache",
         ".coverage",
-    ]
-
-    # Combine default and config ignore patterns
-    all_ignore_patterns = default_ignore_patterns + config_ignores
+    }
 
     discovered_files = []
     directory = Path(directory_path)
@@ -732,8 +672,8 @@ def discover_files_in_directory(directory_path: str) -> List[str]:
         if not file_path.is_file():
             continue
 
-        # Skip if file should be ignored by taidy patterns
-        if should_ignore_file(file_path, all_ignore_patterns):
+        # Skip heavyweight project directories during Taidy's own discovery pass.
+        if any(part in default_ignore_directories for part in file_path.parts):
             continue
 
         # Skip if file should be ignored by git (only if we're in a git repo)
@@ -1118,7 +1058,6 @@ def show_help() -> None:
     show_usage()
     print(f"\n{DIRECTORY_PROCESSING_TEXT}")
     print(f"\n{SUPPORTED_LANGUAGES_TEXT}")
-    print(f"\n{CONFIGURATION_TEXT}")
 
 
 def show_version() -> None:
@@ -1199,10 +1138,9 @@ def _add_command_batch(
     linter_cmd: LinterCommand,
     file_list: List[str],
     input_directories: List[str],
-    has_custom_ignores: bool,
 ) -> None:
     inputs = file_list
-    if input_directories and not has_custom_ignores and linter_cmd.supports_directories:
+    if input_directories and linter_cmd.supports_directories:
         inputs = input_directories
 
     cmd, args = linter_cmd.command(inputs)
@@ -1277,11 +1215,6 @@ def process_files(files: List[str], mode: Mode, dry_run: bool = False) -> Proces
 
     # Track which inputs were directories for potential direct passing to formatters
     input_directories = [f for f in files if os.path.isdir(f) and os.path.exists(f)]
-
-    # Check if we have custom ignore patterns (beyond the defaults)
-    config = load_config(".")
-    config_ignores = config.get("ignore", [])
-    has_custom_ignores = len(config_ignores) > 0
 
     # Expand directories to files
     expanded_files = []
@@ -1381,7 +1314,6 @@ def process_files(files: List[str], mode: Mode, dry_run: bool = False) -> Proces
                         linter_cmd,
                         file_list,
                         input_directories,
-                        has_custom_ignores,
                     )
                     break  # Only use the first available command
 
@@ -1394,7 +1326,6 @@ def process_files(files: List[str], mode: Mode, dry_run: bool = False) -> Proces
                         formatter_cmd,
                         file_list,
                         input_directories,
-                        has_custom_ignores,
                     )
                     break  # Only use the first available command
 

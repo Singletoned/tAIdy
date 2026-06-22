@@ -3,12 +3,14 @@
 These items are intentionally deferred until the command sequencing and rerun
 behavior are stable.
 
-## 1. Make Discovery the Single Source of Truth
+## 1. Clarify Directory Delegation Contract
 
-Taidy currently discovers files with its own ignore rules, but may later pass a
-whole directory to external tools. Decide whether Taidy owns discovery entirely
-or whether adapters can explicitly delegate directory handling when their native
-ignore behavior matches Taidy's contract.
+Taidy should prefer passing directory inputs to tools that support directories,
+so each tool can apply its own project config, ignore rules, and performance
+optimizations. Taidy's own discovery pass should stay lightweight: identify
+whether relevant files exist, choose tool groups, and support tools that require
+explicit file lists. Document this contract clearly and add adapter metadata for
+tools whose directory behavior is project-scoped or unsafe to batch.
 
 ## 2. Replace Stringly Tool Metadata with Adapter Semantics
 
