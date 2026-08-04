@@ -1,6 +1,6 @@
 # Taidy Docker Usage
 
-Run taidy with all linting and formatting tools pre-installed, without needing to install them on your system.
+Run taidy with the Docker-supported linting and formatting tool set pre-installed, without needing to install them on your system. The image does not currently include every optional local adapter; in particular, Jinja (`djlint`) and Makefile (`mbake`) support require local installation.
 
 ## Quick Start
 
@@ -62,6 +62,6 @@ The Docker image includes:
 | YAML           | yamllint, prettier           |
 | TOML           | taplo                        |
 | Terraform      | terraform, tflint            |
-| Makefile       | just                         |
+| Justfile       | just                         |
 | Security       | trufflehog                   |
 | GitHub Actions | actionlint                   |

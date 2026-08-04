@@ -30,7 +30,7 @@ Mostly written by AI (Claude Code and Aider).
 | **YAML**           | yamllint → prettier                                              |
 | **TOML**           | taplo check → taplo format                                       |
 | **Terraform**      | terraform validate/tflint → terraform fmt                        |
-| **Makefile**       | mbake format                                                     |
+| **Makefile**       | mbake format (format only)                                       |
 | **Justfile**       | just --fmt --check → just --fmt                                  |
 | **GitHub Actions** | actionlint → yamllint → prettier (.github/workflows/\*.yml)      |
 | **Security**       | trufflehog (scans for secrets across all file types)             |
@@ -60,10 +60,10 @@ cd taidy
 pip install -e .
 ```
 
-### Option 4: Docker (Includes All Tools)
+### Option 4: Docker (Curated Tool Set)
 
 ```bash
-# Pull the pre-built image with all linters/formatters included
+# Pull the pre-built image with the Docker-supported tool set
 docker pull ghcr.io/singletoned/taidy:latest
 
 # Use it to lint/format files in current directory
@@ -106,7 +106,7 @@ taidy format main.py utils.js
 # Analyze project and suggest missing tools
 taidy suggest
 
-# Run taidy in Docker with all tools pre-installed
+# Run taidy in Docker with the Docker-supported tool set
 taidy docker .
 
 # Show help

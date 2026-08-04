@@ -33,6 +33,7 @@ coverage.html
 # Temporary files
 *.tmp
 *.bak
+.envrc
 
 # Claude settings
 .claude/settings.local.json

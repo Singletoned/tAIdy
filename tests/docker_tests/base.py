@@ -60,13 +60,6 @@ COPY taidy /app/taidy
 ENV PYTHONPATH=/app
 WORKDIR /tmp
 """,
-    "go121": """\
-FROM golang:1.24-alpine
-RUN apk add --no-cache python3
-COPY taidy /app/taidy
-ENV PYTHONPATH=/app
-WORKDIR /tmp
-""",
     "shell-tools": """\
 FROM ubuntu:22.04
 RUN apt-get update && apt-get install -y shellcheck

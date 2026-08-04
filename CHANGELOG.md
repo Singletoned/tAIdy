@@ -32,7 +32,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Rust: rustfmt
   - Ruby: rubocop
   - PHP: php-cs-fixer
-  - SQL: sqlfluff → uvx sqlfluff
   - Shell scripts (.sh/.bash/.zsh): shellcheck → beautysh + shfmt
   - Web files: prettier (JSON, CSS, HTML, Markdown)
 - Command-line interface with lint, format, and both modes
@@ -49,7 +48,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Removed
 
 - Go source code and module files (go.mod, go.sum)
-- Static Docker files (now generated dynamically)
+- Legacy Docker test configuration files (replaced by generated test environments)
 - Obsolete test configuration files
 - Outdated Homebrew formula (binary distribution model)
 - Build artifacts directory

@@ -124,39 +124,3 @@ jobs:
           rm -rf test_workspace
 
           echo "All tests completed successfully!"
-
-      - name: Generate usage documentation
-        if: github.event_name != 'pull_request'
-        run: |
-          echo "## Docker Image Usage" > docker-usage.md
-          echo "" >> docker-usage.md
-          echo "The taidy Docker image includes all supported linters and formatters." >> docker-usage.md
-          echo "" >> docker-usage.md
-          echo "### Quick Start" >> docker-usage.md
-          echo "" >> docker-usage.md
-          echo '```bash' >> docker-usage.md
-          echo "# Lint and format files in current directory" >> docker-usage.md
-          echo 'docker run --rm -v "$(pwd):/workspace" ghcr.io/${{ github.repository }}:latest .' >> docker-usage.md
-          echo "" >> docker-usage.md
-          echo "# Lint specific files" >> docker-usage.md
-          echo 'docker run --rm -v "$(pwd):/workspace" ghcr.io/${{ github.repository }}:latest lint file1.py file2.js' >> docker-usage.md
-          echo "" >> docker-usage.md
-          echo "# Format specific files" >> docker-usage.md
-          echo 'docker run --rm -v "$(pwd):/workspace" ghcr.io/${{ github.repository }}:latest format file1.py file2.js' >> docker-usage.md
-          echo "" >> docker-usage.md
-          echo "# Check tool suggestions" >> docker-usage.md
-          echo 'docker run --rm -v "$(pwd):/workspace" ghcr.io/${{ github.repository }}:latest suggest' >> docker-usage.md
-          echo '```' >> docker-usage.md
-          echo "" >> docker-usage.md
-          echo "### Available Tags" >> docker-usage.md
-          echo "" >> docker-usage.md
-          echo "- \`latest\` - Latest stable release from main branch" >> docker-usage.md
-          echo "- \`v*\` - Specific version tags (e.g., v1.0.0)" >> docker-usage.md
-          echo "- \`main\` - Latest development build" >> docker-usage.md
-
-      - name: Upload documentation artifact
-        if: github.event_name != 'pull_request'
-        uses: actions/upload-artifact@v4
-        with:
-          name: docker-usage-docs
-          path: docker-usage.md
