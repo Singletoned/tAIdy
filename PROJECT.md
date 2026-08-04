@@ -23,7 +23,8 @@ The initial audience is the maintainer's AI-agent-driven development workflow. H
 
 - The default invocation formats and lints the requested files or codebase.
 - If Taidy recognizes a file type but no suitable tool is available, it leaves that file untouched, reports the gap clearly, and suggests running `taidy setup` rather than silently treating the file as formatted.
-- `taidy setup` analyzes the current project and offers to install the required common tools either globally or into a user-controlled Taidy directory such as `~/.config/taidy/`.
+- On first use, `taidy setup` asks where tools should be installed and persists the user's choice. It supports explicit global, Taidy-managed-config-directory, and project-local installation targets.
+- Taidy uses user configuration by default and supports an explicit project configuration for repository-specific tool policy; it never guesses the installation target.
 - Docker is an alternative execution path for users who want the supported tools preinstalled rather than installed locally.
 
 ## Scope Boundaries
@@ -36,7 +37,7 @@ The initial audience is the maintainer's AI-agent-driven development workflow. H
 ## Non-Goals
 
 - Building a new universal formatter or linter.
-- Requiring users to maintain a bespoke Taidy configuration for normal use.
+- Guessing an installation target or silently changing a user's global or project environment.
 - Making JSON the default output format.
 - Optimizing for broad public adoption before the maintainer's agent workflow is reliable.
 
@@ -44,7 +45,7 @@ The initial audience is the maintainer's AI-agent-driven development workflow. H
 
 - An agent can run Taidy over a representative mixed-language repository and quickly determine what was formatted, linted, skipped, or failed.
 - Missing tooling produces an actionable setup recommendation rather than a misleading success result.
-- `taidy setup` can provision the common tooling a project needs with an explicit choice of global or Taidy-managed installation.
+- `taidy setup` can provision the common tooling a project needs after collecting an explicit installation-target choice, and can reuse that persisted choice later.
 - The Docker path provides the documented supported tool set without local tool installation.
 - Default output is compact enough to be useful in token-constrained agent sessions while retaining failures and next actions.
 
@@ -52,6 +53,7 @@ The initial audience is the maintainer's AI-agent-driven development workflow. H
 
 - The exact initial supported language/tool set and which adapters are guaranteed in Docker versus local-only.
 - The installation policy and verification model for tools downloaded or run through ecosystem package managers.
+- The exact user- and project-configuration format, paths, precedence rules, and safe treatment of secrets or machine-specific paths.
 - The stable machine-readable output format and its scope.
 - How aggressively Taidy should filter underlying tool output without hiding actionable diagnostics.
 
