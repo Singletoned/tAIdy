@@ -28,7 +28,7 @@ Taidy guarantees the following well-established tools when they are installed. D
 | TOML                                | Taplo        | Taplo        | Yes   | Yes                |
 | GitHub Actions workflows            | actionlint   | Prettier     | Yes   | Not yet guaranteed |
 
-Taidy retains compatibility adapters and fallback candidates for some additional file types, but they are best-effort only and are not a release guarantee.
+Taidy retains compatibility adapters and fallback candidates for some additional file types, but they are best-effort only and are not a release guarantee. The adapter manifest in `taidy/cli.py` is the canonical policy for command selection, tool suggestions, support tier, and Docker availability.
 
 ## Installation
 

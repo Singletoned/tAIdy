@@ -16,7 +16,15 @@ from unittest.mock import patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
-from taidy.cli import ADAPTER_CATALOGUE, FORMATTER_MAP, LINTER_MAP, Mode, process_files
+from taidy.cli import (
+    ADAPTER_CATALOGUE,
+    ADAPTER_MANIFEST,
+    FORMATTER_MAP,
+    LINTER_MAP,
+    Mode,
+    get_tool_suggestions,
+    process_files,
+)
 
 
 @dataclass(frozen=True)
@@ -87,7 +95,7 @@ ADAPTER_INVENTORY: dict[str, AdapterInventory] = {
         ("terraform", "tflint"), ("terraform",), "supported", "suggestion-only"
     ),
     ".github-workflow": AdapterInventory(
-        ("actionlint", "yamllint", "prettier"), ("prettier",), "supported", "suggestion-only"
+        ("actionlint", "yamllint", "prettier"), ("prettier",), "conditional", "suggestion-only"
     ),
     "makefile": AdapterInventory((), ("mbake",), "unavailable", "suggestion-only"),
     "justfile": AdapterInventory((), ("just",), "supported", "suggestion-only"),
@@ -152,6 +160,18 @@ class TestAdapterInventory(unittest.TestCase):
                 self.assertEqual(result.tools_used, [expected_command])
                 self.assertTrue(mock_execute.called)
 
+    @patch("taidy.cli.get_platform_info", return_value={"system": "unknown"})
+    @patch("taidy.cli.is_command_available", return_value=False)
+    def test_suggestions_derive_from_manifest(self, mock_available, mock_platform):
+        del mock_available, mock_platform
+
+        suggestions = get_tool_suggestions({".py"})
+
+        self.assertEqual(
+            [suggestion.split(":", 1)[0] for suggestion in suggestions[".py"]],
+            list(ADAPTER_MANIFEST[".py"].suggestion_tools),
+        )
+
     @patch("taidy.cli.execute_batched_command", return_value=0)
     @patch("taidy.cli.discover_files_in_directory", return_value=[".env"])
     @patch("taidy.cli.os.path.isdir", return_value=True)
@@ -168,19 +188,25 @@ class TestAdapterInventory(unittest.TestCase):
         self.assertEqual(result.tools_used, ["trufflehog"])
         self.assertTrue(mock_execute.called)
 
-    def test_catalogue_derives_command_maps_and_declares_adapter_status(self):
+    def test_manifest_covers_command_maps_and_drives_adapter_policy(self):
         valid_docker_statuses = {"supported", "conditional", "unavailable"}
+        valid_support_levels = {"curated", "compatibility"}
         valid_setup_statuses = {"suggestion-only", "not-suggested"}
 
-        self.assertEqual(set(ADAPTER_CATALOGUE), set(ADAPTER_INVENTORY))
+        self.assertEqual(set(ADAPTER_MANIFEST), set(ADAPTER_INVENTORY))
+        self.assertEqual(set(ADAPTER_CATALOGUE), set(ADAPTER_MANIFEST))
         for selector, inventory in ADAPTER_INVENTORY.items():
             adapter = ADAPTER_CATALOGUE[selector]
+            manifest = ADAPTER_MANIFEST[selector]
             with self.subTest(selector=selector):
                 self.assertEqual(tuple(LINTER_MAP.get(selector, [])), adapter.linters)
                 self.assertEqual(tuple(FORMATTER_MAP.get(selector, [])), adapter.formatters)
+                self.assertEqual(adapter.suggestion_tools, manifest.suggestion_tools)
+                self.assertEqual(adapter.docker_status, manifest.docker_status)
                 self.assertEqual(adapter.docker_status, inventory.docker_status)
                 self.assertEqual(adapter.setup_status, inventory.setup_status)
                 self.assertIn(adapter.docker_status, valid_docker_statuses)
+                self.assertIn(adapter.support_level, valid_support_levels)
                 self.assertIn(adapter.setup_status, valid_setup_statuses)
 
 

@@ -198,16 +198,27 @@ class LinterCommand:
 
 @dataclass(frozen=True)
 class Adapter:
-    """Canonical policy for one file selector."""
+    """Canonical runtime policy for one file selector."""
 
     selector: str
     linters: tuple[LinterCommand, ...]
     formatters: tuple[LinterCommand, ...]
     suggestion_tools: tuple[str, ...]
     docker_status: str
+    support_level: str
     setup_status: str
     lint_supports_directories: bool
     format_supports_directories: bool
+
+
+@dataclass(frozen=True)
+class AdapterManifestEntry:
+    """Declarative release policy for one adapter selector."""
+
+    selector: str
+    suggestion_tools: tuple[str, ...]
+    docker_status: str
+    support_level: str
 
 
 @dataclass
@@ -1066,60 +1077,69 @@ FORMATTER_MAP: dict[str, list[LinterCommand]] = {
 }
 
 
-_SUGGESTION_TOOLS: dict[str, tuple[str, ...]] = {
-    ".py": ("ruff", "black"),
-    ".js": ("eslint", "prettier"),
-    ".jsx": ("eslint", "prettier"),
-    ".ts": ("eslint", "tsc", "prettier"),
-    ".tsx": ("eslint", "tsc", "prettier"),
-    ".go": ("gofmt",),
-    ".rs": ("rustfmt",),
-    ".rb": ("rubocop",),
-    ".php": ("php-cs-fixer",),
-    ".sh": ("shellcheck", "shfmt"),
-    ".bash": ("shellcheck", "shfmt"),
-    ".zsh": ("shellcheck", "shfmt"),
-    ".json": ("prettier",),
-    ".css": ("prettier",),
-    ".scss": ("prettier",),
-    ".jinja.html": ("djlint",),
-    ".html": ("prettier",),
-    ".md": ("prettier",),
-    ".yaml": ("yamllint", "prettier"),
-    ".yml": ("yamllint", "prettier"),
-    ".toml": ("taplo",),
-    ".tf": ("terraform", "tflint"),
-    ".tfvars": ("terraform", "tflint"),
-    ".github-workflow": ("actionlint", "yamllint", "prettier"),
-    "makefile": ("mbake",),
-    "justfile": ("just",),
-    ".security": ("trufflehog",),
+# This manifest is the single declarative source for release support, Docker
+# availability, and installation suggestions. Command construction remains next
+# to the command implementations above; `_build_adapter_catalogue()` validates
+# that no command adapter exists outside this manifest.
+_ADAPTER_MANIFEST_ENTRIES = (
+    (".py", ("ruff", "black"), "supported", "curated"),
+    (".js", ("eslint", "prettier"), "supported", "curated"),
+    (".jsx", ("eslint", "prettier"), "supported", "curated"),
+    (".ts", ("eslint", "tsc", "prettier"), "supported", "curated"),
+    (".tsx", ("eslint", "tsc", "prettier"), "supported", "curated"),
+    (".json", ("prettier",), "supported", "curated"),
+    (".css", ("prettier",), "supported", "curated"),
+    (".scss", ("prettier",), "supported", "curated"),
+    (".html", ("prettier",), "supported", "curated"),
+    (".md", ("prettier",), "supported", "curated"),
+    (".go", ("gofmt",), "supported", "curated"),
+    (".rs", ("rustfmt",), "supported", "curated"),
+    (".rb", ("rubocop",), "supported", "curated"),
+    (".php", ("php-cs-fixer",), "supported", "curated"),
+    (".sh", ("shellcheck", "shfmt"), "supported", "curated"),
+    (".bash", ("shellcheck", "shfmt"), "supported", "curated"),
+    (".zsh", ("shellcheck", "shfmt"), "supported", "curated"),
+    (".yaml", ("yamllint", "prettier"), "supported", "curated"),
+    (".yml", ("yamllint", "prettier"), "supported", "curated"),
+    (".toml", ("taplo",), "supported", "curated"),
+    (".github-workflow", ("actionlint", "yamllint", "prettier"), "conditional", "curated"),
+    (".jinja.html", ("djlint",), "unavailable", "compatibility"),
+    (".pug", (), "unavailable", "compatibility"),
+    (".tf", ("terraform", "tflint"), "supported", "compatibility"),
+    (".tfvars", ("terraform", "tflint"), "supported", "compatibility"),
+    ("makefile", ("mbake",), "unavailable", "compatibility"),
+    ("justfile", ("just",), "supported", "compatibility"),
+    (".security", ("trufflehog",), "conditional", "compatibility"),
+)
+ADAPTER_MANIFEST = {
+    selector: AdapterManifestEntry(selector, suggestion_tools, docker_status, support_level)
+    for selector, suggestion_tools, docker_status, support_level in _ADAPTER_MANIFEST_ENTRIES
 }
-_DOCKER_UNAVAILABLE_SELECTORS = {".jinja.html", ".pug", "makefile"}
-_DOCKER_CONDITIONAL_SELECTORS = {".security"}
 
 
 def _build_adapter_catalogue() -> dict[str, Adapter]:
-    """Create the canonical adapter policy from established command definitions."""
+    """Build runtime adapters and reject command definitions absent from the manifest."""
+    configured_selectors = set(LINTER_MAP) | set(FORMATTER_MAP)
+    manifest_selectors = set(ADAPTER_MANIFEST)
+    if configured_selectors != manifest_selectors:
+        raise RuntimeError(
+            "Adapter manifest selectors do not match command definitions: "
+            f"missing={sorted(configured_selectors - manifest_selectors)}, "
+            f"stale={sorted(manifest_selectors - configured_selectors)}"
+        )
+
     catalogue = {}
-    for selector in set(LINTER_MAP) | set(FORMATTER_MAP):
+    for selector, manifest in ADAPTER_MANIFEST.items():
         linters = tuple(LINTER_MAP.get(selector, []))
         formatters = tuple(FORMATTER_MAP.get(selector, []))
-        docker_status = (
-            "unavailable"
-            if selector in _DOCKER_UNAVAILABLE_SELECTORS
-            else "conditional"
-            if selector in _DOCKER_CONDITIONAL_SELECTORS
-            else "supported"
-        )
-        suggestion_tools = _SUGGESTION_TOOLS.get(selector, ())
         catalogue[selector] = Adapter(
             selector,
             linters,
             formatters,
-            suggestion_tools,
-            docker_status,
-            "suggestion-only" if suggestion_tools else "not-suggested",
+            manifest.suggestion_tools,
+            manifest.docker_status,
+            manifest.support_level,
+            "suggestion-only" if manifest.suggestion_tools else "not-suggested",
             any(command.supports_directories for command in linters),
             any(command.supports_directories for command in formatters),
         )
@@ -1720,44 +1740,14 @@ def get_tool_suggestions(extensions: set[str]) -> dict[str, list[str]]:
     suggestions = {}
     platform_info = get_platform_info()
 
-    # Map extensions to their primary recommended tools
-    tool_recommendations = {
-        ".py": ["ruff", "black"],
-        ".js": ["eslint", "prettier"],
-        ".jsx": ["eslint", "prettier"],
-        ".ts": ["eslint", "tsc", "prettier"],
-        ".tsx": ["eslint", "tsc", "prettier"],
-        ".go": ["gofmt"],
-        ".rs": ["rustfmt"],
-        ".rb": ["rubocop"],
-        ".php": ["php-cs-fixer"],
-        ".sh": ["shellcheck", "shfmt"],
-        ".bash": ["shellcheck", "shfmt"],
-        ".zsh": ["shellcheck", "shfmt"],
-        ".json": ["prettier"],
-        ".css": ["prettier"],
-        ".scss": ["prettier"],
-        ".jinja.html": ["djlint"],
-        ".html": ["prettier"],
-        ".md": ["prettier"],
-        ".yaml": ["yamllint", "prettier"],
-        ".yml": ["yamllint", "prettier"],
-        ".toml": ["taplo"],
-        ".tf": ["terraform", "tflint"],
-        ".tfvars": ["terraform", "tflint"],
-        ".github-workflow": ["actionlint", "yamllint", "prettier"],
-        "makefile": ["mbake"],
-        "justfile": ["just"],
-        ".security": ["trufflehog"],
-    }
-
     # Get platform-specific installation commands
     install_commands = get_install_commands(platform_info)
 
     for ext in extensions:
-        if ext in tool_recommendations:
+        adapter = ADAPTER_CATALOGUE.get(ext)
+        if adapter:
             ext_suggestions = []
-            for tool in tool_recommendations[ext]:
+            for tool in adapter.suggestion_tools:
                 if not is_command_available(tool):
                     install_cmd = install_commands.get(tool, f"install {tool}")
                     ext_suggestions.append(f"{tool}: {install_cmd}")

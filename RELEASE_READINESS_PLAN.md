@@ -26,17 +26,16 @@ The first public release is a reliable, curated tool rather than a broad best-ef
 
 **Acceptance criteria:** README, CLI help, JSON output, and exit codes use one unambiguous definition of “success.”
 
-### 2. Establish one tool manifest
+### 2. Establish one tool manifest **[complete: core policy]**
 
-Create a single declarative manifest for tool adapters and use it to generate or validate:
+`ADAPTER_MANIFEST` in `taidy/cli.py` is the declarative source for every adapter selector's installation suggestions, Docker availability, and release tier. The runtime catalogue rejects command definitions outside the manifest, and unit tests verify that catalogue and suggestion behavior derives from it.
 
-- CLI command selection and fallback order;
-- `suggest` recommendations;
-- Docker-installed tools;
-- supported-language documentation; and
-- the test matrix.
+- CLI command selection remains adjacent to command construction, while the manifest validates its selector coverage.
+- `suggest` derives its recommendations from the manifest.
+- Each adapter is marked `curated` or `compatibility`, and `supported`, `conditional`, or `unavailable` in Docker.
+- README documents the curated/compatibility distinction and identifies the manifest as the policy source.
 
-Do not add language support outside the manifest. Mark each adapter as local-only, Docker-supported, or experimental.
+Do not add language support outside the manifest. Production-image coverage that proves Docker installation for every documented Docker-supported adapter is implemented by step 3.
 
 **Acceptance criteria:** CI fails if a documented Docker-supported tool is absent from the image or lacks an end-to-end test.
 
