@@ -4,13 +4,14 @@ title: Consolidate adapter policy into a catalogue
 status: To Do
 assignee: []
 created_date: '2026-08-04 11:41'
+updated_date: '2026-08-06 07:27'
 labels:
   - agent-first
   - setup
 dependencies:
   - TASK-1.1
 references:
-  - IMPLEMENTATION_PLAN.md
+  - PROJECT.md
 parent_task_id: TASK-1
 priority: high
 ordinal: 3000
@@ -28,3 +29,12 @@ Replace duplicated adapter metadata with one typed catalogue that drives command
 - [ ] #2 No current adapter or priority changes without an explicit documented decision.
 - [ ] #3 Catalogue declares operation, selector, runner, directory behavior, Docker status, and setup-provider status.
 <!-- AC:END -->
+
+## Implementation Plan
+
+<!-- SECTION:PLAN:BEGIN -->
+1. Introduce a typed adapter catalogue as the sole source of policy.
+2. Each entry must declare selectors, format/lint operations, ordered PATH/uvx/bunx/native candidates, directory behavior, Docker availability, and supported/deferred/unsupported setup status.
+3. Derive command selection, discovery selectors, and suggest recommendations from the catalogue.
+4. Retain the current priority/order characterized in TASK-1.1; document and test every intentional change.
+<!-- SECTION:PLAN:END -->
