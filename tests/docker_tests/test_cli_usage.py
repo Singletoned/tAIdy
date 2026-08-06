@@ -32,4 +32,4 @@ class TestCLIUsage(DockerTestCase):
         exit_code, stdout, stderr = self.run_taidy("minimal", "nonexistent1.py nonexistent2.js")
         output = stdout + stderr
         self.assertEqual(exit_code, 0)
-        self.assertOutputContains(output, "no files were linted")
+        self.assertOutputContains(output, "No supported files provided, no files were checked")

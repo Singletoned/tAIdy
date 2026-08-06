@@ -39,14 +39,14 @@ Do not add language support outside the manifest. Production-image coverage that
 
 **Acceptance criteria:** CI fails if a documented Docker-supported tool is absent from the image or lacks an end-to-end test.
 
-### 3. Repair behavior and test contracts
+### 3. Repair behavior and test contracts **[complete]**
 
-- Resolve the three failing Docker tests by first choosing the contract from step 1, then changing implementation and tests together.
-- Replace assertions that only check for `Running:` with assertions for the selected command, file outcome, and exit code.
-- Add production-image tests that build the real `Dockerfile`, invoke the entrypoint correctly, and validate every Docker-supported manifest entry.
-- Cover no-tool, unsupported-file, tool-finding, infrastructure-failure, JSON, and dry-run outcomes.
+- Updated Docker expectations for the `not_checked` success contract.
+- Production-image tests now build the real `Dockerfile`, invoke its entrypoint, and validate every Docker-supported manifest suggestion is executable.
+- The production image preserves the Python tool target directory on `PATH`, fixing discovery of Ruff, Black, and yamllint.
+- Docker tests cover no-tool, unsupported-file JSON, tool discovery, build failure, and dry-run outcomes.
 
-**Acceptance criteria:** `just test-all` passes without permanently skipped production-image tests.
+**Acceptance criteria:** `make test-all` passes without permanently skipped production-image tests.
 
 ### 4. Make CI and releases trustworthy
 

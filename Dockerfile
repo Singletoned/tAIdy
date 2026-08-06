@@ -147,9 +147,10 @@ COPY --from=builder /opt/go-tools/shfmt /usr/local/bin/
 # Copy binary tools from builder (with error handling for missing files)
 COPY --from=builder /opt/bin/ /usr/local/bin/
 
-# Copy Python tools and Taidy installation
-COPY --from=builder /opt/python-tools /usr/local/lib/python3.11/site-packages/
-ENV PYTHONPATH=/usr/local/lib/python3.11/site-packages
+# Copy Python tools and Taidy installation. `pip --target` places console
+# scripts in its own bin directory, which must remain on PATH at runtime.
+COPY --from=builder /opt/python-tools /opt/python-tools
+ENV PYTHONPATH=/opt/python-tools
 
 # Copy Node.js global packages (npm global directory)
 COPY --from=builder /usr/local/lib/node_modules /usr/local/lib/node_modules
@@ -164,8 +165,8 @@ COPY --from=builder /usr/local/bundle /usr/local/bundle
 COPY --from=builder /root/.composer /root/.composer
 
 # Set up PATH environment variables for all tools
-ENV PATH="/usr/local/bundle/bin:/usr/local/bin:/root/.composer/vendor/bin:$PATH" \
-    PYTHONPATH="/usr/local/lib/python3.11/site-packages" \
+ENV PATH="/opt/python-tools/bin:/usr/local/bundle/bin:/usr/local/bin:/root/.composer/vendor/bin:$PATH" \
+    PYTHONPATH="/opt/python-tools" \
     GEM_HOME="/usr/local/bundle" \
     GEM_PATH="/usr/local/bundle"
 

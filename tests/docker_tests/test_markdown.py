@@ -39,5 +39,9 @@ class TestMarkdown(DockerTestCase):
             "minimal", "poorly_formatted.md", ["poorly_formatted.md"]
         )
         output = stdout + stderr
-        self.assertOutputContains(output, "No available linter found for .md files")
-        self.assertOutputContains(output, "No available formatter found for .md files")
+        self.assertOutputContains(
+            output, "No available tool for .md lint, format; files were not checked"
+        )
+        self.assertOutputContains(
+            output, "No available tool for .md lint, format; files were not checked"
+        )
