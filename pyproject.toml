@@ -53,7 +53,7 @@ Changelog = "https://github.com/singletoned/taidy/blob/main/CHANGELOG.md"
 taidy = "taidy.cli:main"
 
 [project.optional-dependencies]
-dev = ["ruff"]
+dev = ["ruff==0.16.1"]
 
 [tool.setuptools.packages.find]
 include = ["taidy*"]
@@ -64,7 +64,8 @@ unsafe-fixes = true
 line-length = 100
 
 [tool.ruff.lint]
-extend-select = ["E", "F", "I"]
+# Keep the project's established core rule set stable across Ruff releases.
+select = ["E", "F", "I"]
 unfixable = ["F841"]
 
 [tool.ruff.format]

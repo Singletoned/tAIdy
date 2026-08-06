@@ -11,7 +11,7 @@ class TestSecurity(DockerTestCase):
 
     def test_trufflehog_detects_secrets(self):
         """Trufflehog detects secrets in a Python file."""
-        exit_code, stdout, stderr = self.run_taidy(
+        exit_code, _stdout, _stderr = self.run_taidy(
             "python311-trufflehog", "lint with_secret.py", ["with_secret.py"]
         )
         # trufflehog exits 183 when it finds secrets
@@ -19,7 +19,7 @@ class TestSecurity(DockerTestCase):
 
     def test_trufflehog_scans_directory(self):
         """Trufflehog scans a directory for secrets."""
-        exit_code, stdout, stderr = self.run_taidy(
+        _exit_code, stdout, stderr = self.run_taidy(
             "python311-trufflehog",
             "lint .",
             ["with_secret.py", "poorly_formatted.py"],

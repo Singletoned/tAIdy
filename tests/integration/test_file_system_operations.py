@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Integration tests for file system operations with real files."""
 
 import os

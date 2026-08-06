@@ -4,6 +4,8 @@ Provides helpers to build Docker images and run taidy commands inside containers
 Ported from the Go testcontainer infrastructure.
 """
 
+from __future__ import annotations
+
 import os
 import shutil
 import subprocess
@@ -38,7 +40,7 @@ COPY taidy /app/taidy
 ENV PYTHONPATH=/app
 WORKDIR /tmp
 """,
-    "python311-trufflehog": (  # noqa: E501
+    "python311-trufflehog": (
         "FROM python:3.11-slim\n"
         "RUN pip install ruff\n"
         "RUN apt-get update && apt-get install -y wget && \\\n"

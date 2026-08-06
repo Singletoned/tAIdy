@@ -1,5 +1,6 @@
-#!/usr/bin/env python3
 """Taidy CLI - Smart linter/formatter with automatic tool detection."""
+
+from __future__ import annotations
 
 import json
 import logging
@@ -13,7 +14,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
 from enum import Enum
 from pathlib import Path
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple
+from typing import Any, Callable, Tuple
 
 from taidy import __version__ as VERSION
 
@@ -78,12 +79,12 @@ Taidy automatically detects which linters are available and uses the best one fo
 # Configure logging
 logger = logging.getLogger(__name__)
 
-JUSTFILE_NAMES: Set[str] = {"justfile", "justfile.just"}
-MAKEFILE_NAMES: Set[str] = {"makefile", "gnumakefile"}
+JUSTFILE_NAMES: set[str] = {"justfile", "justfile.just"}
+MAKEFILE_NAMES: set[str] = {"makefile", "gnumakefile"}
 JINJA_HTML_SUFFIX = ".jinja.html"
 
 # Extensions eligible for security scanning (trufflehog)
-SECURITY_EXTENSIONS: Set[str] = {
+SECURITY_EXTENSIONS: set[str] = {
     ".py",
     ".js",
     ".jsx",
@@ -112,7 +113,7 @@ SECURITY_EXTENSIONS: Set[str] = {
 }
 
 # Extensions that are inherently unlintable/unformattable (binary/opaque assets)
-ALWAYS_UNFORMATTABLE_EXTENSIONS: Set[str] = {
+ALWAYS_UNFORMATTABLE_EXTENSIONS: set[str] = {
     ".txt",
     ".log",
     ".exe",
@@ -193,8 +194,22 @@ class LinterCommand:
     """Represents a linter command that can be tried"""
 
     available: Callable[[], bool]
-    command: Callable[[List[str]], Tuple[str, List[str]]]
+    command: Callable[[list[str]], tuple[str, list[str]]]
     supports_directories: bool = False
+
+
+@dataclass(frozen=True)
+class Adapter:
+    """Canonical policy for one file selector."""
+
+    selector: str
+    linters: tuple[LinterCommand, ...]
+    formatters: tuple[LinterCommand, ...]
+    suggestion_tools: tuple[str, ...]
+    docker_status: str
+    setup_status: str
+    lint_supports_directories: bool
+    format_supports_directories: bool
 
 
 @dataclass
@@ -203,10 +218,10 @@ class ProcessingResult:
 
     files_processed: int
     exit_code: int
-    tools_used: List[str]
-    errors: List[str]
+    tools_used: list[str]
+    errors: list[str]
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "files_processed": self.files_processed,
             "exit_code": self.exit_code,
@@ -216,7 +231,7 @@ class ProcessingResult:
 
 
 # Cache for command availability to avoid repeated shutil.which() calls
-_command_availability_cache: Dict[str, bool] = {}
+_command_availability_cache: dict[str, bool] = {}
 
 
 def is_command_available(cmd: str) -> bool:
@@ -233,7 +248,7 @@ def _taidy_cache_dir() -> Path:
     return Path.home() / ".cache" / "taidy"
 
 
-def _find_nvm_node_bin() -> Optional[Path]:
+def _find_nvm_node_bin() -> Path | None:
     """Find the bin directory of the node version installed by nvm in our cache."""
     nvm_dir = _taidy_cache_dir() / "nvm"
     versions_dir = nvm_dir / "versions" / "node"
@@ -410,7 +425,7 @@ def bootstrap() -> int:
     return 0
 
 
-def _ensure_prettier_pug_install() -> Tuple[Path, Path]:
+def _ensure_prettier_pug_install() -> tuple[Path, Path]:
     cache_dir = _taidy_cache_dir() / "prettier-pug"
     prettier_bin = cache_dir / "node_modules" / "prettier" / "bin" / "prettier.cjs"
     plugin_file = cache_dir / "node_modules" / "@prettier" / "plugin-pug" / "dist" / "index.js"
@@ -433,7 +448,7 @@ def _ensure_prettier_pug_install() -> Tuple[Path, Path]:
     return prettier_bin, plugin_file
 
 
-def _pug_prettier_command(files: List[str]) -> Tuple[str, List[str]]:
+def _pug_prettier_command(files: list[str]) -> tuple[str, list[str]]:
     prettier_bin, plugin_file = _ensure_prettier_pug_install()
     return (
         "node",
@@ -449,7 +464,7 @@ def _pug_prettier_command(files: List[str]) -> Tuple[str, List[str]]:
     )
 
 
-def detect_linux_distribution() -> Optional[Dict[str, str]]:
+def detect_linux_distribution() -> dict[str, str] | None:
     """Detect Linux distribution using /etc/os-release file"""
     try:
         os_release_path = Path("/etc/os-release")
@@ -503,11 +518,11 @@ def detect_linux_distribution() -> Optional[Dict[str, str]]:
             "name": info.get("NAME", ""),
             "pretty_name": info.get("PRETTY_NAME", ""),
         }
-    except Exception:
+    except OSError:
         return None
 
 
-def get_platform_info() -> Dict[str, Any]:
+def get_platform_info() -> dict[str, Any]:
     """Get platform information including OS type and Linux distribution details"""
     system = platform.system().lower()
 
@@ -536,7 +551,7 @@ def is_git_repository(directory: Path) -> bool:
     return find_git_root(directory) is not None
 
 
-def find_git_root(directory: Path) -> Optional[Path]:
+def find_git_root(directory: Path) -> Path | None:
     """Find the root of the git repository containing the directory"""
     current = directory.resolve()
     while current != current.parent:
@@ -546,7 +561,7 @@ def find_git_root(directory: Path) -> Optional[Path]:
     return None
 
 
-def get_git_ignored_files(git_root: Path) -> Set[Path]:
+def get_git_ignored_files(git_root: Path) -> set[Path]:
     """Get set of files ignored by git using git status --ignored"""
     ignored_files = set()
 
@@ -565,8 +580,8 @@ def get_git_ignored_files(git_root: Path) -> Set[Path]:
                     # Remove the '!! ' prefix and get the file path
                     file_path = line[3:]
                     ignored_files.add(git_root / file_path)
-    except Exception as e:
-        logger.debug(f"Failed to get git ignored files: {e}")
+    except OSError as error:
+        logger.debug(f"Failed to get git ignored files: {error}")
 
     return ignored_files
 
@@ -603,7 +618,7 @@ def _strip_trufflehog_banner(output: str) -> str:
     return joined
 
 
-def _get_trufflehog_command(files: List[str]) -> Tuple[str, List[str]]:
+def _get_trufflehog_command(files: list[str]) -> tuple[str, list[str]]:
     """Get the appropriate trufflehog command based on git repository status."""
     log_level = _get_trufflehog_log_level()
     log_level_arg = f"--log-level={log_level}"
@@ -633,11 +648,9 @@ def _get_trufflehog_command(files: List[str]) -> Tuple[str, List[str]]:
         )
 
 
-def discover_files_in_directory(directory_path: str) -> List[str]:
+def discover_files_in_directory(directory_path: str) -> list[str]:
     """Discover all supported files in a directory recursively"""
-    supported_extensions: Set[str] = set()
-    supported_extensions.update(LINTER_MAP.keys())
-    supported_extensions.update(FORMATTER_MAP.keys())
+    supported_extensions = set(ADAPTER_CATALOGUE)
 
     # Common directories to ignore (defaults)
     default_ignore_directories = {
@@ -693,14 +706,20 @@ def discover_files_in_directory(directory_path: str) -> List[str]:
             is_supported = True
 
         # Special case: GitHub Actions workflow files
-        if not is_supported and file_path.suffix.lower() in [".yml", ".yaml"]:
-            if ".github/workflows" in str(file_path):
-                is_supported = True
+        if (
+            not is_supported
+            and file_path.suffix.lower() in [".yml", ".yaml"]
+            and ".github/workflows" in str(file_path)
+        ):
+            is_supported = True
 
         # Special case: Security scanning - include all files if trufflehog is available
-        if not is_supported and is_command_available("trufflehog"):
-            if ext in SECURITY_EXTENSIONS or file_path.name.startswith(".env"):
-                is_supported = True
+        if (
+            not is_supported
+            and is_command_available("trufflehog")
+            and (ext in SECURITY_EXTENSIONS or file_path.name.startswith(".env"))
+        ):
+            is_supported = True
 
         if not is_supported:
             continue
@@ -778,7 +797,7 @@ _yaml_lint = [
 ]
 
 # LinterConfig maps file extensions to sequences of linter commands to try in order
-LINTER_MAP: Dict[str, List[LinterCommand]] = {
+LINTER_MAP: dict[str, list[LinterCommand]] = {
     ".py": [
         LinterCommand(
             available=lambda: is_command_available("ruff"),
@@ -950,7 +969,7 @@ LINTER_MAP: Dict[str, List[LinterCommand]] = {
 }
 
 # FormatterConfig maps file extensions to sequences of formatter commands to try in order
-FORMATTER_MAP: Dict[str, List[LinterCommand]] = {
+FORMATTER_MAP: dict[str, list[LinterCommand]] = {
     ".py": [
         LinterCommand(
             available=lambda: is_command_available("ruff"),
@@ -1047,6 +1066,79 @@ FORMATTER_MAP: Dict[str, List[LinterCommand]] = {
 }
 
 
+_SUGGESTION_TOOLS: dict[str, tuple[str, ...]] = {
+    ".py": ("ruff", "black"),
+    ".js": ("eslint", "prettier"),
+    ".jsx": ("eslint", "prettier"),
+    ".ts": ("eslint", "tsc", "prettier"),
+    ".tsx": ("eslint", "tsc", "prettier"),
+    ".go": ("gofmt",),
+    ".rs": ("rustfmt",),
+    ".rb": ("rubocop",),
+    ".php": ("php-cs-fixer",),
+    ".sh": ("shellcheck", "shfmt"),
+    ".bash": ("shellcheck", "shfmt"),
+    ".zsh": ("shellcheck", "shfmt"),
+    ".json": ("prettier",),
+    ".css": ("prettier",),
+    ".scss": ("prettier",),
+    ".jinja.html": ("djlint",),
+    ".html": ("prettier",),
+    ".md": ("prettier",),
+    ".yaml": ("yamllint", "prettier"),
+    ".yml": ("yamllint", "prettier"),
+    ".toml": ("taplo",),
+    ".tf": ("terraform", "tflint"),
+    ".tfvars": ("terraform", "tflint"),
+    ".github-workflow": ("actionlint", "yamllint", "prettier"),
+    "makefile": ("mbake",),
+    "justfile": ("just",),
+    ".security": ("trufflehog",),
+}
+_DOCKER_UNAVAILABLE_SELECTORS = {".jinja.html", ".pug", "makefile"}
+_DOCKER_CONDITIONAL_SELECTORS = {".security"}
+
+
+def _build_adapter_catalogue() -> dict[str, Adapter]:
+    """Create the canonical adapter policy from established command definitions."""
+    catalogue = {}
+    for selector in set(LINTER_MAP) | set(FORMATTER_MAP):
+        linters = tuple(LINTER_MAP.get(selector, []))
+        formatters = tuple(FORMATTER_MAP.get(selector, []))
+        docker_status = (
+            "unavailable"
+            if selector in _DOCKER_UNAVAILABLE_SELECTORS
+            else "conditional"
+            if selector in _DOCKER_CONDITIONAL_SELECTORS
+            else "supported"
+        )
+        suggestion_tools = _SUGGESTION_TOOLS.get(selector, ())
+        catalogue[selector] = Adapter(
+            selector,
+            linters,
+            formatters,
+            suggestion_tools,
+            docker_status,
+            "suggestion-only" if suggestion_tools else "not-suggested",
+            any(command.supports_directories for command in linters),
+            any(command.supports_directories for command in formatters),
+        )
+    return catalogue
+
+
+ADAPTER_CATALOGUE = _build_adapter_catalogue()
+LINTER_MAP = {
+    selector: list(adapter.linters)
+    for selector, adapter in ADAPTER_CATALOGUE.items()
+    if adapter.linters
+}
+FORMATTER_MAP = {
+    selector: list(adapter.formatters)
+    for selector, adapter in ADAPTER_CATALOGUE.items()
+    if adapter.formatters
+}
+
+
 def show_usage() -> None:
     """Show usage information"""
     print(USAGE_TEXT, file=sys.stderr)
@@ -1069,7 +1161,7 @@ def show_version() -> None:
 output_lock = threading.Lock()
 
 
-def execute_batched_command(cmd_signature: CommandSignature, file_list: List[str]) -> int:
+def execute_batched_command(cmd_signature: CommandSignature, file_list: list[str]) -> int:
     """Execute a batched command with deduplicated file list"""
     cmd, base_args = cmd_signature
 
@@ -1134,10 +1226,10 @@ def execute_batched_command(cmd_signature: CommandSignature, file_list: List[str
 
 
 def _add_command_batch(
-    command_batches: Dict[CommandSignature, List[str]],
+    command_batches: dict[CommandSignature, list[str]],
     linter_cmd: LinterCommand,
-    file_list: List[str],
-    input_directories: List[str],
+    file_list: list[str],
+    input_directories: list[str],
 ) -> None:
     inputs = file_list
     if input_directories and linter_cmd.supports_directories:
@@ -1152,12 +1244,10 @@ def _add_command_batch(
     command_batches[cmd_signature].extend(inputs)
 
 
-def _render_command(cmd_signature: CommandSignature, file_list: List[str]) -> str:
+def _render_command(cmd_signature: CommandSignature, file_list: list[str]) -> str:
     cmd, base_args = cmd_signature
     unique_files = list(dict.fromkeys(file_list))
-    if cmd == "just" and "--fmt" in base_args:
-        args = list(base_args)
-    elif cmd == "trufflehog" and "git" in base_args:
+    if cmd == "just" and "--fmt" in base_args or cmd == "trufflehog" and "git" in base_args:
         args = list(base_args)
     else:
         args = list(base_args) + unique_files
@@ -1165,9 +1255,9 @@ def _render_command(cmd_signature: CommandSignature, file_list: List[str]) -> st
 
 
 def _execute_command_phase(
-    command_batches: Dict[CommandSignature, List[str]],
+    command_batches: dict[CommandSignature, list[str]],
     phase_name: str,
-) -> Tuple[int, List[str]]:
+) -> tuple[int, list[str]]:
     if not command_batches:
         return 0, []
 
@@ -1208,10 +1298,10 @@ def _execute_command_phase(
     return exit_code, errors
 
 
-def process_files(files: List[str], mode: Mode, dry_run: bool = False) -> ProcessingResult:
+def process_files(files: list[str], mode: Mode, dry_run: bool = False) -> ProcessingResult:
     """Process files according to the specified mode"""
-    tools_used: List[str] = []
-    errors: List[str] = []
+    tools_used: list[str] = []
+    errors: list[str] = []
 
     # Track which inputs were directories for potential direct passing to formatters
     input_directories = [f for f in files if os.path.isdir(f) and os.path.exists(f)]
@@ -1234,9 +1324,9 @@ def process_files(files: List[str], mode: Mode, dry_run: bool = False) -> Proces
             expanded_files.append(file_or_dir)
 
     # Group files by their file extension
-    file_groups: Dict[str, List[str]] = {}
+    file_groups: dict[str, list[str]] = {}
     # Track which extensions we've already warned about
-    warned_extensions: Set[str] = set()
+    warned_extensions: set[str] = set()
 
     for file in expanded_files:
         file_path = Path(file)
@@ -1288,11 +1378,10 @@ def process_files(files: List[str], mode: Mode, dry_run: bool = False) -> Proces
             and is_command_available("trufflehog")
             and len(input_directories) == 1
             and len(files) == 1
-        ):
-            if ext in SECURITY_EXTENSIONS or file_path.name.startswith(".env"):
-                if ".security" not in file_groups:
-                    file_groups[".security"] = []
-                file_groups[".security"].append(file)
+        ) and (ext in SECURITY_EXTENSIONS or file_path.name.startswith(".env")):
+            if ".security" not in file_groups:
+                file_groups[".security"] = []
+            file_groups[".security"].append(file)
 
     # Check if any files will be processed
     if not file_groups:
@@ -1300,8 +1389,8 @@ def process_files(files: List[str], mode: Mode, dry_run: bool = False) -> Proces
         return ProcessingResult(files_processed=0, exit_code=0, tools_used=[], errors=[])
 
     # Batch commands by their command signature to avoid duplicate runs
-    lint_batches: Dict[CommandSignature, List[str]] = {}
-    format_batches: Dict[CommandSignature, List[str]] = {}
+    lint_batches: dict[CommandSignature, list[str]] = {}
+    format_batches: dict[CommandSignature, list[str]] = {}
 
     # Collect all commands that would be run
     for ext, file_list in file_groups.items():
@@ -1378,7 +1467,7 @@ def process_files(files: List[str], mode: Mode, dry_run: bool = False) -> Proces
     )
 
 
-def analyze_project_files(directory: str = ".") -> Dict[str, Set[str]]:
+def analyze_project_files(directory: str = ".") -> dict[str, set[str]]:
     """Analyze project files and return found extensions and their tools"""
     found_extensions = set()
 
@@ -1442,7 +1531,7 @@ def analyze_project_files(directory: str = ".") -> Dict[str, Set[str]]:
     return result
 
 
-def get_install_commands(platform_info: Dict[str, Any]) -> Dict[str, str]:
+def get_install_commands(platform_info: dict[str, Any]) -> dict[str, str]:
     """Get installation commands for tools based on platform information"""
     system = platform_info["system"]
     distribution = platform_info.get("distribution")
@@ -1603,7 +1692,7 @@ def get_install_commands(platform_info: Dict[str, Any]) -> Dict[str, str]:
     return install_commands
 
 
-def get_tool_suggestions(extensions: Set[str]) -> Dict[str, List[str]]:
+def get_tool_suggestions(extensions: set[str]) -> dict[str, list[str]]:
     """Get tool installation suggestions for missing extensions"""
     suggestions = {}
     platform_info = get_platform_info()
@@ -1747,10 +1836,10 @@ def suggest_tools(quiet: bool = False) -> int:
 
 
 def docker_run(
-    args: List[str],
+    args: list[str],
     pull_always: bool = False,
     build_local: bool = False,
-    custom_image: Optional[str] = None,
+    custom_image: str | None = None,
 ) -> int:
     """Run taidy in Docker container with all tools pre-installed
 

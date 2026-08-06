@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """Unit tests for linter execution logic."""
 
 import logging

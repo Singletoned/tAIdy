@@ -11,7 +11,7 @@ class TestShell(DockerTestCase):
 
     def test_shellcheck_and_shfmt(self):
         """Both linting and formatting work when shellcheck+shfmt are installed."""
-        exit_code, stdout, stderr = self.run_taidy(
+        _exit_code, stdout, stderr = self.run_taidy(
             "shell-tools", "poorly_formatted.sh", ["poorly_formatted.sh"]
         )
         output = stdout + stderr
@@ -19,7 +19,7 @@ class TestShell(DockerTestCase):
 
     def test_shellcheck_lint_only(self):
         """Lint-only mode uses shellcheck."""
-        exit_code, stdout, stderr = self.run_taidy(
+        _exit_code, stdout, stderr = self.run_taidy(
             "shell-tools", "lint poorly_formatted.sh", ["poorly_formatted.sh"]
         )
         output = stdout + stderr
@@ -27,7 +27,7 @@ class TestShell(DockerTestCase):
 
     def test_shfmt_format_only(self):
         """Format-only mode uses shfmt."""
-        exit_code, stdout, stderr = self.run_taidy(
+        _exit_code, stdout, stderr = self.run_taidy(
             "shell-tools", "format poorly_formatted.sh", ["poorly_formatted.sh"]
         )
         output = stdout + stderr
@@ -35,7 +35,7 @@ class TestShell(DockerTestCase):
 
     def test_bash_file(self):
         """Bash files are handled the same as .sh files."""
-        exit_code, stdout, stderr = self.run_taidy(
+        _exit_code, stdout, stderr = self.run_taidy(
             "shell-tools", "poorly_formatted.bash", ["poorly_formatted.bash"]
         )
         output = stdout + stderr
@@ -43,7 +43,7 @@ class TestShell(DockerTestCase):
 
     def test_zsh_file(self):
         """Zsh files are handled the same as .sh files."""
-        exit_code, stdout, stderr = self.run_taidy(
+        _exit_code, stdout, stderr = self.run_taidy(
             "shell-tools", "poorly_formatted.zsh", ["poorly_formatted.zsh"]
         )
         output = stdout + stderr

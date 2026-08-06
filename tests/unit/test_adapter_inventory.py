@@ -4,6 +4,7 @@ This snapshot deliberately lives in tests until TASK-1.2 replaces the parallel
 maps with a typed catalogue. It prevents that refactor from silently dropping
 an existing selector or changing the command fallback order.
 """
+
 from __future__ import annotations
 
 import os
@@ -15,7 +16,7 @@ from unittest.mock import patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", ".."))
 
-from taidy.cli import FORMATTER_MAP, LINTER_MAP, Mode, process_files
+from taidy.cli import ADAPTER_CATALOGUE, FORMATTER_MAP, LINTER_MAP, Mode, process_files
 
 
 @dataclass(frozen=True)
@@ -167,14 +168,20 @@ class TestAdapterInventory(unittest.TestCase):
         self.assertEqual(result.tools_used, ["trufflehog"])
         self.assertTrue(mock_execute.called)
 
-    def test_every_adapter_records_docker_and_setup_status(self):
+    def test_catalogue_derives_command_maps_and_declares_adapter_status(self):
         valid_docker_statuses = {"supported", "conditional", "unavailable"}
         valid_setup_statuses = {"suggestion-only", "not-suggested"}
 
+        self.assertEqual(set(ADAPTER_CATALOGUE), set(ADAPTER_INVENTORY))
         for selector, inventory in ADAPTER_INVENTORY.items():
+            adapter = ADAPTER_CATALOGUE[selector]
             with self.subTest(selector=selector):
-                self.assertIn(inventory.docker_status, valid_docker_statuses)
-                self.assertIn(inventory.setup_status, valid_setup_statuses)
+                self.assertEqual(tuple(LINTER_MAP.get(selector, [])), adapter.linters)
+                self.assertEqual(tuple(FORMATTER_MAP.get(selector, [])), adapter.formatters)
+                self.assertEqual(adapter.docker_status, inventory.docker_status)
+                self.assertEqual(adapter.setup_status, inventory.setup_status)
+                self.assertIn(adapter.docker_status, valid_docker_statuses)
+                self.assertIn(adapter.setup_status, valid_setup_statuses)
 
 
 if __name__ == "__main__":
