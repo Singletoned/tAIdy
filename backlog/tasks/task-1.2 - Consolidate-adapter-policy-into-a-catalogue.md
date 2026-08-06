@@ -1,10 +1,10 @@
 ---
 id: TASK-1.2
 title: Consolidate adapter policy into a catalogue
-status: To Do
+status: In Progress
 assignee: []
 created_date: '2026-08-04 11:41'
-updated_date: '2026-08-06 07:27'
+updated_date: '2026-08-06 08:12'
 labels:
   - agent-first
   - setup
@@ -38,3 +38,9 @@ Replace duplicated adapter metadata with one typed catalogue that drives command
 3. Derive command selection, discovery selectors, and suggest recommendations from the catalogue.
 4. Retain the current priority/order characterized in TASK-1.1; document and test every intentional change.
 <!-- SECTION:PLAN:END -->
+
+## Implementation Notes
+
+<!-- SECTION:NOTES:BEGIN -->
+TASK-1.1 characterization is complete; beginning catalogue extraction from the verified inventory.
+<!-- SECTION:NOTES:END -->
