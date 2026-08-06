@@ -350,6 +350,34 @@ class TestProcessFilesOrchestration(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
         mock_execute.assert_called_once_with(("ruff", ("format", "--quiet")), ["."])
 
+    @patch("taidy.cli.os.path.isdir", return_value=False)
+    @patch("taidy.cli.os.path.exists", return_value=True)
+    def test_unknown_file_is_not_checked_without_failure(self, mock_exists, mock_isdir):
+        """Unsupported inputs are reported, rather than treated as tool failures."""
+        del mock_exists, mock_isdir
+
+        result = process_files(["mr.flibble"], Mode.BOTH)
+
+        self.assertEqual(result.exit_code, 0)
+        self.assertEqual(result.files_processed, 0)
+        self.assertEqual(result.not_checked, ["mr.flibble: no adapter for both"])
+        self.assertEqual(result.to_dict()["not_checked"], result.not_checked)
+
+    @patch("taidy.cli.is_command_available", return_value=False)
+    @patch("taidy.cli.os.path.isdir", return_value=False)
+    @patch("taidy.cli.os.path.exists", return_value=True)
+    def test_recognized_file_without_tools_is_not_checked_without_failure(
+        self, mock_exists, mock_isdir, mock_available
+    ):
+        """Recognized files remain successful best-effort outcomes when tools are absent."""
+        del mock_exists, mock_isdir, mock_available
+
+        result = process_files(["app.py"], Mode.BOTH)
+
+        self.assertEqual(result.exit_code, 0)
+        self.assertEqual(result.files_processed, 0)
+        self.assertEqual(result.not_checked, ["app.py: no available tool for lint, format"])
+
 
 if __name__ == "__main__":
     unittest.main()

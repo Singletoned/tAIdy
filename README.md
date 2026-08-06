@@ -1,8 +1,6 @@
 # Taidy
 
-A linter/formatter for all file types. Designed for AI agents to be able to easily use, so that you can tell them to use this for every file and it won't fail. Detects what tools are installed and uses them. If it can't find a tool, it logs a warning and continues.
-
-Mostly written by AI (Claude Code and Aider).
+A conservative linter/formatter for AI-agent and developer workflows. Taidy selects an available formatter or linter from its curated tool set, runs it, and reports files it could not check without failing merely because those files are unsupported or their tools are absent.
 
 ## Features
 
@@ -12,28 +10,25 @@ Mostly written by AI (Claude Code and Aider).
 - **Python Package**: Easy to install with pip, or run directly with Python
 - **Smart Fallbacks**: Gracefully falls back when preferred tools aren't available
 
-## Supported Languages & Tools
+## Curated Support
 
-| Language           | Priority Order                                                   |
-| ------------------ | ---------------------------------------------------------------- |
-| **Python**         | ruff → uvx ruff → black → flake8 → pylint → python -m py_compile |
-| **JavaScript**     | eslint → prettier → node --check                                 |
-| **TypeScript**     | eslint → tsc --noEmit → prettier                                 |
-| **Go**             | gofmt                                                            |
-| **Rust**           | rustfmt                                                          |
-| **Ruby**           | rubocop                                                          |
-| **PHP**            | php-cs-fixer                                                     |
-| **Shell**          | shellcheck → beautysh (linting), shfmt → beautysh (formatting)   |
-| **JSON/CSS**       | prettier                                                         |
-| **Jinja HTML**     | djlint                                                           |
-| **HTML**           | prettier                                                         |
-| **YAML**           | yamllint → prettier                                              |
-| **TOML**           | taplo check → taplo format                                       |
-| **Terraform**      | terraform validate/tflint → terraform fmt                        |
-| **Makefile**       | mbake format (format only)                                       |
-| **Justfile**       | just --fmt --check → just --fmt                                  |
-| **GitHub Actions** | actionlint → yamllint → prettier (.github/workflows/\*.yml)      |
-| **Security**       | trufflehog (scans for secrets across all file types)             |
+Taidy guarantees the following well-established tools when they are installed. Docker support is a separate promise because its image must contain and be tested with the tool.
+
+| Files                               | Linter       | Formatter    | Local | Docker             |
+| ----------------------------------- | ------------ | ------------ | ----- | ------------------ |
+| Python                              | Ruff         | Ruff         | Yes   | Yes                |
+| JavaScript and TypeScript           | ESLint       | Prettier     | Yes   | Yes                |
+| JSON, CSS, SCSS, HTML, and Markdown | Prettier     | Prettier     | Yes   | Yes                |
+| Go                                  | gofmt        | gofmt        | Yes   | Yes                |
+| Rust                                | rustfmt      | rustfmt      | Yes   | Yes                |
+| Ruby                                | RuboCop      | RuboCop      | Yes   | Yes                |
+| PHP                                 | PHP CS Fixer | PHP CS Fixer | Yes   | Yes                |
+| Shell                               | ShellCheck   | shfmt        | Yes   | Yes                |
+| YAML                                | yamllint     | Prettier     | Yes   | Yes                |
+| TOML                                | Taplo        | Taplo        | Yes   | Yes                |
+| GitHub Actions workflows            | actionlint   | Prettier     | Yes   | Not yet guaranteed |
+
+Taidy retains compatibility adapters and fallback candidates for some additional file types, but they are best-effort only and are not a release guarantee.
 
 ## Installation
 
@@ -116,6 +111,10 @@ taidy --help
 taidy --version
 ```
 
+### Bootstrap
+
+`taidy bootstrap` provisions `uv` and Node.js in Taidy's cache only when they are not already available on `PATH`. It is retained to make the Python and JavaScript tool paths usable; before the first public release, its downloads will be pinned and verified.
+
 ### Examples
 
 ```bash
@@ -138,6 +137,12 @@ taidy lint .  # Will include security scanning for all files
 taidy suggest
 ```
 
+### Outcomes and Exit Codes
+
+A zero exit status means every selected, available tool completed successfully. It does **not** mean every input file was formatted or linted: unsupported file types and recognized types with no available tool are reported as `not_checked` and do not fail the command.
+
+A non-zero exit status means a selected tool reported findings or failed to run. `2` means invalid command usage. With `--json`, the result includes `files_processed`, `tools_used`, `errors`, and `not_checked` for automation.
+
 ## How It Works
 
 Taidy examines each file's extension and tries linters/formatters in priority order:
@@ -158,26 +163,26 @@ For example, with a Python file:
 ### Requirements
 
 - Python 3.8+
-- [just](https://github.com/casey/just) (for running recipes)
+- [make](https://www.gnu.org/software/make/) (for running development targets)
 - Docker (for Docker-based integration tests, optional)
 
 ### Building
 
 ```bash
 # Build distribution packages
-just dist
+make dist
 
 # Run fast tests (unit + integration)
-just test
+make test
 
 # Run all tests including Docker-based tests
-just test-all
+make test-all
 
 # Type checking
-just typecheck
+make typecheck
 
 # Lint and format code
-just check
+make format
 ```
 
 ### Testing
@@ -189,9 +194,9 @@ Three test layers, all Python:
 - **Docker tests** (`tests/docker_tests/`): End-to-end in containers with real tools
 
 ```bash
-just test          # Unit + integration (fast)
-just test-docker   # Docker tests only
-just test-all      # Everything
+make test          # Unit + integration (fast)
+make test-docker   # Docker tests only
+make test-all      # Everything
 ```
 
 ## Contributing

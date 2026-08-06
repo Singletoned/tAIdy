@@ -1,6 +1,6 @@
 # Taidy Docker Usage
 
-Run taidy with the Docker-supported linting and formatting tool set pre-installed, without needing to install them on your system. The image does not currently include every optional local adapter; in particular, Jinja (`djlint`) and Makefile (`mbake`) support require local installation.
+Run taidy with the curated Docker-supported linting and formatting tool set pre-installed, without needing to install them on your system. Jinja (`djlint`) and Makefile (`mbake`) support require local installation. GitHub Actions workflow linting is bundled on a best-effort basis but is not a Docker release guarantee until the production image is tested on every supported platform.
 
 ## Quick Start
 
@@ -46,22 +46,22 @@ docker build -t taidy:latest .
 docker run --rm -v "$(pwd):/workspace" taidy:latest .
 ```
 
-## Included Tools
+## Bundled Tools
 
-The Docker image includes:
+The Docker image currently includes:
 
-| Language       | Tools                        |
-| -------------- | ---------------------------- |
-| Python         | ruff, black, flake8, pylint  |
-| JavaScript/TS  | eslint, prettier, typescript |
-| Go             | gofmt                        |
-| Rust           | rustfmt                      |
-| Ruby           | rubocop                      |
-| PHP            | php-cs-fixer                 |
-| Shell          | shellcheck, shfmt, beautysh  |
-| YAML           | yamllint, prettier           |
-| TOML           | taplo                        |
-| Terraform      | terraform, tflint            |
-| Justfile       | just                         |
-| Security       | trufflehog                   |
-| GitHub Actions | actionlint                   |
+| Language       | Tools                         |
+| -------------- | ----------------------------- |
+| Python         | ruff, black, flake8, pylint   |
+| JavaScript/TS  | eslint, prettier, typescript  |
+| Go             | gofmt                         |
+| Rust           | rustfmt                       |
+| Ruby           | rubocop                       |
+| PHP            | php-cs-fixer                  |
+| Shell          | shellcheck, shfmt, beautysh   |
+| YAML           | yamllint, prettier            |
+| TOML           | taplo                         |
+| Terraform      | terraform, tflint             |
+| Justfile       | just                          |
+| Security       | trufflehog                    |
+| GitHub Actions | actionlint (best effort only) |

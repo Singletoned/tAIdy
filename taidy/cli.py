@@ -28,7 +28,7 @@ Commands:
   lint       Lint files only (no formatting)
   format     Format files only (no linting)
   suggest    Analyze project and suggest tools to install
-  bootstrap  Install uv and node to ~/.cache/taidy (only if missing)
+  bootstrap  Provision uv and Node.js in Taidy's cache when needed
   docker     Run taidy in Docker with all tools pre-installed
   (none)     Both lint and format (default)
 
@@ -47,7 +47,7 @@ Examples:
   taidy --json .         # JSON output for automation
   taidy suggest          # Show missing tools
 
-Supported: Python, JS/TS, Go, Rust, Ruby, PHP, Shell, JSON, CSS, HTML, YAML, TOML, Terraform"""
+Curated support: Python, JS/TS, Go, Rust, Ruby, PHP, Shell, JSON, CSS, HTML, Markdown, YAML, TOML, and GitHub Actions.\n\nExit status: 0 means all available selected tools completed successfully. Files without an adapter or available tool are reported as not checked and do not make the command fail."""
 
 DIRECTORY_PROCESSING_TEXT = """Directory Processing:
   When a directory is specified, taidy recursively finds all supported files
@@ -68,13 +68,11 @@ SUPPORTED_LANGUAGES_TEXT = """Supported file types and linters:
   HTML:         prettier
   YAML:         yamllint → prettier
   TOML:         taplo check → taplo format
-  Terraform:    terraform validate/tflint → terraform fmt
-  Makefile:     mbake format
-  Justfile:     just --fmt --check → just --fmt
   GitHub Actions: actionlint → yamllint → prettier (.github/workflows/*.yml)
-  Security:     trufflehog (scans for secrets across all file types)
 
-Taidy automatically detects which linters are available and uses the best one for each file type."""
+Curated support is limited to the file types above. Other adapters, including Terraform, Jinja, Makefile, Justfile, Pug, and security scanning, are best-effort compatibility features and are not part of the release guarantee.
+
+Taidy automatically detects available tools and uses the first suitable candidate. A missing adapter or tool is reported as not checked and does not make the command fail. Exit status 0 guarantees only that every selected available tool completed successfully."""
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -220,6 +218,7 @@ class ProcessingResult:
     exit_code: int
     tools_used: list[str]
     errors: list[str]
+    not_checked: list[str]
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -227,6 +226,7 @@ class ProcessingResult:
             "exit_code": self.exit_code,
             "tools_used": self.tools_used,
             "errors": self.errors,
+            "not_checked": self.not_checked,
         }
 
 
@@ -1302,6 +1302,7 @@ def process_files(files: list[str], mode: Mode, dry_run: bool = False) -> Proces
     """Process files according to the specified mode"""
     tools_used: list[str] = []
     errors: list[str] = []
+    not_checked: list[str] = []
 
     # Track which inputs were directories for potential direct passing to formatters
     input_directories = [f for f in files if os.path.isdir(f) and os.path.exists(f)]
@@ -1363,11 +1364,12 @@ def process_files(files: list[str], mode: Mode, dry_run: bool = False) -> Proces
                 file_groups[mapped_ext] = []
             file_groups[mapped_ext].append(file)
         else:
+            not_checked.append(f"{file}: no adapter for {mode.value}")
             # Only warn once per extension, and skip known unformattable types
             if ext not in warned_extensions and ext not in ALWAYS_UNFORMATTABLE_EXTENSIONS:
                 logger.warning(
-                    f"No linter configured for extension {ext}. "
-                    "Run 'taidy suggest' for tool recommendations."
+                    f"No adapter configured for extension {ext} in {mode.value} mode. "
+                    "This file was not checked."
                 )
                 warned_extensions.add(ext)
 
@@ -1385,8 +1387,14 @@ def process_files(files: list[str], mode: Mode, dry_run: bool = False) -> Proces
 
     # Check if any files will be processed
     if not file_groups:
-        logger.info("No supported files provided, no files were linted")
-        return ProcessingResult(files_processed=0, exit_code=0, tools_used=[], errors=[])
+        logger.info("No supported files provided, no files were checked")
+        return ProcessingResult(
+            files_processed=0,
+            exit_code=0,
+            tools_used=[],
+            errors=[],
+            not_checked=not_checked,
+        )
 
     # Batch commands by their command signature to avoid duplicate runs
     lint_batches: dict[CommandSignature, list[str]] = {}
@@ -1418,6 +1426,19 @@ def process_files(files: list[str], mode: Mode, dry_run: bool = False) -> Proces
                     )
                     break  # Only use the first available command
 
+    for selector, file_list in file_groups.items():
+        unavailable_operations = []
+        if mode in [Mode.LINT, Mode.BOTH] and selector in LINTER_MAP:
+            if not any(command.available() for command in LINTER_MAP[selector]):
+                unavailable_operations.append("lint")
+        if mode in [Mode.FORMAT, Mode.BOTH] and selector in FORMATTER_MAP:
+            if not any(command.available() for command in FORMATTER_MAP[selector]):
+                unavailable_operations.append("format")
+        if unavailable_operations:
+            operations = ", ".join(unavailable_operations)
+            not_checked.extend(f"{file}: no available tool for {operations}" for file in file_list)
+            logger.warning(f"No available tool for {selector} {operations}; files were not checked")
+
     # Track tools used
     command_batches = list(format_batches.items()) + list(lint_batches.items())
     for cmd_signature, _ in command_batches:
@@ -1448,6 +1469,7 @@ def process_files(files: list[str], mode: Mode, dry_run: bool = False) -> Proces
             exit_code=0,
             tools_used=tools_used,
             errors=[],
+            not_checked=not_checked,
         )
 
     exit_code = 0
@@ -1464,6 +1486,7 @@ def process_files(files: list[str], mode: Mode, dry_run: bool = False) -> Proces
         exit_code=exit_code,
         tools_used=tools_used,
         errors=errors,
+        not_checked=not_checked,
     )
 
 

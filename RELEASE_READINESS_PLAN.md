@@ -14,14 +14,15 @@ Prepare Taidy for external users by making its support contract, release gates, 
 
 ## Ordered implementation plan
 
-### 1. Set the public support contract **[input required before implementation]**
+### 1. Set the public support contract **[complete]**
 
-Ask for a decision on the following when this step begins:
+The first public release is a reliable, curated tool rather than a broad best-effort beta.
 
-1. Is the first public release a **best-effort beta** or a **reliable, curated tool**?
-2. Which languages and tools are supported in the first release, separately for local and Docker use?
-3. When a file is recognized but no suitable tool is available, should Taidy exit non-zero or exit zero with an explicit `not checked` result?
-4. Should `taidy bootstrap` remain a supported feature, be redesigned around pinned/verified artifacts, or be removed?
+- **Guaranteed locally:** Ruff (Python); ESLint and Prettier (JavaScript and TypeScript); Prettier (JSON, CSS, SCSS, HTML, and Markdown); gofmt; rustfmt; RuboCop; PHP CS Fixer; ShellCheck and shfmt; yamllint and Prettier (YAML); Taplo; and actionlint and Prettier (GitHub Actions workflows).
+- **Guaranteed in Docker:** the same set except GitHub Actions workflows, which remain local-only until the production image installs and tests actionlint reliably on every supported platform.
+- **Compatibility adapters:** Other existing adapters and fallback candidates remain best-effort and are not release guarantees until they are explicitly added to the manifest.
+- **Missing adapters or tools:** report the affected input as `not_checked` and exit zero. Exit zero means every selected available tool completed successfully; it does not mean every input was checked.
+- **Bootstrap:** retain its useful `uv` and Node.js provisioning role, but redesign its downloads around pinned, verified artifacts before the first public release.
 
 **Acceptance criteria:** README, CLI help, JSON output, and exit codes use one unambiguous definition of “success.”
 
