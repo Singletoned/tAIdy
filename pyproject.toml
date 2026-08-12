@@ -73,5 +73,8 @@ quote-style = "double"
 indent-style = "space"
 line-ending = "lf"
 
+[dependency-groups]
+dev = ["ty>=0.0.70"]
+
 [tool.ruff.lint.isort]
 known-first-party = ["taidy"]
