@@ -1249,19 +1249,19 @@ def _add_command_batch(
     command_batches: dict[CommandSignature, list[str]],
     linter_cmd: LinterCommand,
     file_list: list[str],
-    input_directories: list[str],
 ) -> None:
-    inputs = file_list
-    if input_directories and linter_cmd.supports_directories:
-        inputs = input_directories
+    """Batch only the files Taidy discovered for this adapter.
 
-    cmd, args = linter_cmd.command(inputs)
-    base_args = [arg for arg in args if arg not in inputs]
+    Passing a source directory directly lets formatter traversal escape Taidy's
+    supported-file and ignore policy, including into untracked binary files.
+    """
+    cmd, args = linter_cmd.command(file_list)
+    base_args = [arg for arg in args if arg not in file_list]
     cmd_signature = (cmd, tuple(base_args))
 
     if cmd_signature not in command_batches:
         command_batches[cmd_signature] = []
-    command_batches[cmd_signature].extend(inputs)
+    command_batches[cmd_signature].extend(file_list)
 
 
 def _render_command(cmd_signature: CommandSignature, file_list: list[str]) -> str:
@@ -1426,24 +1426,14 @@ def process_files(files: list[str], mode: Mode, dry_run: bool = False) -> Proces
         if mode in [Mode.LINT, Mode.BOTH] and ext in LINTER_MAP:
             for linter_cmd in LINTER_MAP[ext]:
                 if linter_cmd.available():
-                    _add_command_batch(
-                        lint_batches,
-                        linter_cmd,
-                        file_list,
-                        input_directories,
-                    )
+                    _add_command_batch(lint_batches, linter_cmd, file_list)
                     break  # Only use the first available command
 
         # Process formatting commands
         if mode in [Mode.FORMAT, Mode.BOTH] and ext in FORMATTER_MAP:
             for formatter_cmd in FORMATTER_MAP[ext]:
                 if formatter_cmd.available():
-                    _add_command_batch(
-                        format_batches,
-                        formatter_cmd,
-                        file_list,
-                        input_directories,
-                    )
+                    _add_command_batch(format_batches, formatter_cmd, file_list)
                     break  # Only use the first available command
 
     for selector, file_list in file_groups.items():

@@ -339,16 +339,16 @@ class TestProcessFilesOrchestration(unittest.TestCase):
     @patch("taidy.cli.os.path.isdir", return_value=True)
     @patch("taidy.cli.os.path.exists", return_value=True)
     @patch("taidy.cli.execute_batched_command")
-    def test_directory_capable_tools_receive_directory_inputs(
+    def test_directory_tools_receive_only_discovered_files(
         self, mock_execute, mock_exists, mock_isdir, mock_available, mock_discover
     ):
-        """Directory-capable tools should own traversal for directory inputs."""
+        """Formatter traversal must not escape Taidy's discovery policy."""
         mock_execute.return_value = 0
 
         result = process_files(["."], Mode.FORMAT)
 
         self.assertEqual(result.exit_code, 0)
-        mock_execute.assert_called_once_with(("ruff", ("format", "--quiet")), ["."])
+        mock_execute.assert_called_once_with(("ruff", ("format", "--quiet")), ["src/app.py"])
 
     @patch("taidy.cli.os.path.isdir", return_value=False)
     @patch("taidy.cli.os.path.exists", return_value=True)
