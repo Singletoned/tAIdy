@@ -1,34 +1,28 @@
 #!/bin/bash
-# Poorly formatted shell script with various issues
+# Shell fixture for lint and format testing.
 
-function process_files() {
-	local dir=$1
-	if [ -z "$dir" ]; then
+process_files() {
+	local directory=$1
+	if [ -z "$directory" ]; then
 		echo "Error: directory not provided"
 		return 1
 	fi
 
-	for file in $(ls $dir/*.txt); do
+	for file in "$directory"/*.txt; do
+		[ -f "$file" ] || continue
 		echo "Processing: $file"
-		if [ -f $file ]; then
-			cat $file | grep "important" >results.txt
-		fi
+		grep "important" "$file" >results.txt
 	done
 }
 
-VAR1=value1
-VAR2="value2"
-
 process_files /tmp
 
-# Function with bad practices
-function bad_function() {
-	rm -rf $1/*
-	test $? -eq 0 && echo "success"
+bad_function() {
+	rm -rf "${1:?}"/*
+	echo "success"
 }
 
-# Missing quotes and other issues
 for i in $(seq 1 10); do
-	echo $i
-	[ $i -gt 5 ] && break
+	echo "$i"
+	[ "$i" -gt 5 ] && break
 done

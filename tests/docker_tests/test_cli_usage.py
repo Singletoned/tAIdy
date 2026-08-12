@@ -22,6 +22,7 @@ class TestCLIUsage(DockerTestCase):
             capture_output=True,
             text=True,
             timeout=120,
+            check=False,
         )
         output = result.stdout + result.stderr
         self.assertOutputContains(output, "Usage:")

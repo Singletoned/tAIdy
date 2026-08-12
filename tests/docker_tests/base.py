@@ -121,6 +121,7 @@ def build_environment(name: str) -> str:
             capture_output=True,
             text=True,
             timeout=300,
+            check=False,
         )
         if result.returncode != 0:
             raise RuntimeError(
@@ -167,6 +168,7 @@ def run_taidy(image_tag: str, command: str, sample_files: list[str] | None = Non
             capture_output=True,
             text=True,
             timeout=120,
+            check=False,
         )
         return result.returncode, result.stdout, result.stderr
     finally:

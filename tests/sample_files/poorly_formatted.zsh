@@ -1,9 +1,10 @@
 #!/bin/zsh
+# shellcheck shell=bash
 # Poorly formatted zsh script
 
 function zsh_function() {
 	local arr=(a b c d)
-	for item in ${arr[@]}; do
+	for item in "${arr[@]}"; do
 		echo "Item: $item"
 	done
 

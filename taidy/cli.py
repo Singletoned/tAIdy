@@ -47,7 +47,11 @@ Examples:
   taidy --json .         # JSON output for automation
   taidy suggest          # Show missing tools
 
-Curated support: Python, JS/TS, Go, Rust, Ruby, PHP, Shell, JSON, CSS, HTML, Markdown, YAML, TOML, and GitHub Actions.\n\nExit status: 0 means all available selected tools completed successfully. Files without an adapter or available tool are reported as not checked and do not make the command fail."""
+Curated support: Python, JS/TS, Go, Rust, Ruby, PHP, Shell, JSON, CSS, HTML, Markdown, YAML,
+TOML, and GitHub Actions.
+
+Exit status: 0 means all available selected tools completed successfully. Files without an
+adapter or available tool are reported as not checked and do not make the command fail."""
 
 DIRECTORY_PROCESSING_TEXT = """Directory Processing:
   When a directory is specified, taidy recursively finds all supported files
@@ -70,9 +74,13 @@ SUPPORTED_LANGUAGES_TEXT = """Supported file types and linters:
   TOML:         taplo check → taplo format
   GitHub Actions: actionlint → yamllint → prettier (.github/workflows/*.yml)
 
-Curated support is limited to the file types above. Other adapters, including Terraform, Jinja, Makefile, Justfile, Pug, and security scanning, are best-effort compatibility features and are not part of the release guarantee.
+Curated support is limited to the file types above. Other adapters, including Terraform, Jinja,
+Makefile, Justfile, Pug, and security scanning, are best-effort compatibility features and are not
+part of the release guarantee.
 
-Taidy automatically detects available tools and uses the first suitable candidate. A missing adapter or tool is reported as not checked and does not make the command fail. Exit status 0 guarantees only that every selected available tool completed successfully."""
+Taidy automatically detects available tools and uses the first suitable candidate. A missing adapter
+or tool is reported as not checked and does not make the command fail. Exit status 0 guarantees only
+that every selected available tool completed successfully."""
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -112,6 +120,7 @@ SECURITY_EXTENSIONS: set[str] = {
 
 # Extensions that are inherently unlintable/unformattable (binary/opaque assets)
 ALWAYS_UNFORMATTABLE_EXTENSIONS: set[str] = {
+    "",
     ".txt",
     ".log",
     ".exe",
@@ -295,12 +304,16 @@ def _add_bootstrapped_paths() -> None:
 def _download(url: str) -> str:
     """Download a URL and return the content as a string. Uses curl or wget."""
     if shutil.which("curl"):
-        result = subprocess.run(["curl", "-fsSL", url], capture_output=True, text=True, timeout=120)
+        result = subprocess.run(
+            ["curl", "-fsSL", url], capture_output=True, text=True, timeout=120, check=False
+        )
         if result.returncode != 0:
             raise RuntimeError(f"curl failed: {result.stderr}")
         return result.stdout
     elif shutil.which("wget"):
-        result = subprocess.run(["wget", "-qO-", url], capture_output=True, text=True, timeout=120)
+        result = subprocess.run(
+            ["wget", "-qO-", url], capture_output=True, text=True, timeout=120, check=False
+        )
         if result.returncode != 0:
             raise RuntimeError(f"wget failed: {result.stderr}")
         return result.stdout
@@ -326,7 +339,7 @@ def bootstrap_uv() -> bool:
 
     script = _download("https://astral.sh/uv/install.sh")
     result = subprocess.run(
-        ["sh"], input=script, capture_output=True, text=True, env=env, timeout=120
+        ["sh"], input=script, capture_output=True, text=True, env=env, timeout=120, check=False
     )
     if result.returncode != 0:
         raise RuntimeError(f"uv installer failed: {result.stderr}")
@@ -358,7 +371,7 @@ def bootstrap_node() -> bool:
 
     script = _download("https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.3/install.sh")
     result = subprocess.run(
-        ["sh"], input=script, capture_output=True, text=True, env=env, timeout=120
+        ["sh"], input=script, capture_output=True, text=True, env=env, timeout=120, check=False
     )
     if result.returncode != 0:
         raise RuntimeError(f"nvm installer failed: {result.stderr}")
@@ -377,6 +390,7 @@ def bootstrap_node() -> bool:
         text=True,
         env=env,
         timeout=300,
+        check=False,
     )
     if result.returncode != 0:
         raise RuntimeError(f"node installation failed: {result.stderr}")
@@ -583,6 +597,7 @@ def get_git_ignored_files(git_root: Path) -> set[Path]:
             capture_output=True,
             text=True,
             timeout=10,
+            check=False,
         )
 
         if result.returncode == 0:
@@ -1213,7 +1228,7 @@ def execute_batched_command(cmd_signature: CommandSignature, file_list: list[str
         if cmd == "taplo":
             env["RUST_LOG"] = "warn"
 
-        result = subprocess.run([cmd] + args, capture_output=True, text=True, env=env)
+        result = subprocess.run([cmd] + args, capture_output=True, text=True, env=env, check=False)
 
         suppress_output = (
             cmd == "trufflehog" and result.returncode == 0 and _get_logger_level() > logging.INFO
@@ -1239,9 +1254,9 @@ def execute_batched_command(cmd_signature: CommandSignature, file_list: list[str
         with output_lock:
             logger.error(f"Error executing {cmd}: command not found")
         return 127  # Standard exit code for command not found
-    except Exception as e:
+    except (OSError, subprocess.SubprocessError) as error:
         with output_lock:
-            logger.error(f"Error executing {cmd}: {e}")
+            logger.error(f"Error executing {cmd}: {error}")
         return 1  # General error
 
 
@@ -1302,9 +1317,9 @@ def _execute_command_phase(
                 result = future.result()
                 if result != 0:
                     failed_batches.append(cmd_signature)
-            except Exception as e:
+            except (OSError, subprocess.SubprocessError) as error:
                 with output_lock:
-                    logger.error(f"Error executing {cmd_signature[0]}: {e}")
+                    logger.error(f"Error executing {cmd_signature[0]}: {error}")
                 failed_batches.append(cmd_signature)
 
     for cmd_signature in failed_batches:
@@ -1441,12 +1456,18 @@ def process_files(files: list[str], mode: Mode, dry_run: bool = False) -> Proces
 
     for selector, file_list in file_groups.items():
         unavailable_operations = []
-        if mode in [Mode.LINT, Mode.BOTH] and selector in LINTER_MAP:
-            if not any(command.available() for command in LINTER_MAP[selector]):
-                unavailable_operations.append("lint")
-        if mode in [Mode.FORMAT, Mode.BOTH] and selector in FORMATTER_MAP:
-            if not any(command.available() for command in FORMATTER_MAP[selector]):
-                unavailable_operations.append("format")
+        if (
+            mode in [Mode.LINT, Mode.BOTH]
+            and selector in LINTER_MAP
+            and not any(command.available() for command in LINTER_MAP[selector])
+        ):
+            unavailable_operations.append("lint")
+        if (
+            mode in [Mode.FORMAT, Mode.BOTH]
+            and selector in FORMATTER_MAP
+            and not any(command.available() for command in FORMATTER_MAP[selector])
+        ):
+            unavailable_operations.append("format")
         if unavailable_operations:
             operations = ", ".join(unavailable_operations)
             not_checked.extend(f"{file}: no available tool for {operations}" for file in file_list)
@@ -1872,7 +1893,7 @@ def docker_run(
             print("Building Docker image locally from Dockerfile...")
             print("This may take several minutes...")
             build_result = subprocess.run(
-                ["docker", "build", "-t", local_image, "."], cwd=os.getcwd()
+                ["docker", "build", "-t", local_image, "."], cwd=os.getcwd(), check=False
             )
 
             if build_result.returncode != 0:
@@ -1884,7 +1905,10 @@ def docker_run(
         else:
             # Check if image exists locally
             inspect_result = subprocess.run(
-                ["docker", "image", "inspect", docker_image], capture_output=True, text=True
+                ["docker", "image", "inspect", docker_image],
+                capture_output=True,
+                text=True,
+                check=False,
             )
             image_exists = inspect_result.returncode == 0
 
@@ -1893,7 +1917,7 @@ def docker_run(
                 action = "Pulling latest" if pull_always else "Downloading"
                 print(f"{action} Docker image from GitHub Container Registry...")
                 print(f"Image: {docker_image}")
-                pull_result = subprocess.run(["docker", "pull", docker_image])
+                pull_result = subprocess.run(["docker", "pull", docker_image], check=False)
 
                 if pull_result.returncode != 0:
                     print(f"Error: Failed to pull Docker image '{docker_image}'.", file=sys.stderr)
@@ -1913,8 +1937,8 @@ def docker_run(
             else:
                 print(f"Using cached Docker image '{docker_image}'")
 
-    except Exception as e:
-        print(f"Error preparing Docker image: {e}", file=sys.stderr)
+    except (OSError, subprocess.SubprocessError) as error:
+        print(f"Error preparing Docker image: {error}", file=sys.stderr)
         return 1
 
     # Get current working directory for mounting
@@ -1941,13 +1965,13 @@ def docker_run(
 
     # Execute the Docker command
     try:
-        result = subprocess.run(docker_cmd)
+        result = subprocess.run(docker_cmd, check=False)
         return result.returncode
     except KeyboardInterrupt:
         print("\nInterrupted by user")
         return 130
-    except Exception as e:
-        print(f"Error running Docker container: {e}", file=sys.stderr)
+    except (OSError, subprocess.SubprocessError) as error:
+        print(f"Error running Docker container: {error}", file=sys.stderr)
         return 1
 
 

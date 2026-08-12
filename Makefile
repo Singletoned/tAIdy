@@ -22,11 +22,12 @@ typecheck: ## Run mypy type checking.
 	uv run mypy taidy/
 
 check: test ## Run fast tests and type checks.
-	uv run ty check taidy/
+	taidy lint .
+	ty check taidy/
 
 clean: ## Remove build and Python cache artifacts.
 	rm -rf dist/ build/ *.egg-info/ __pycache__/ *.pyc taidy/__pycache__/ taidy/*.pyc
 
 # args: files?=.
 format: ## Format files or the entire repository with Taidy.
-	uv run python -m taidy format "$(if $(FILES),$(FILES),.)"
+	taidy format "$(if $(FILES),$(FILES),.)"

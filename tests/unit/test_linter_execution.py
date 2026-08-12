@@ -47,6 +47,7 @@ class TestExecuteBatchedCommand(unittest.TestCase):
             capture_output=True,
             text=True,
             env=os.environ,
+            check=False,
         )
 
     @patch("subprocess.run")
@@ -91,7 +92,7 @@ class TestExecuteBatchedCommand(unittest.TestCase):
     def test_execute_batched_command_exception(self, mock_logger, mock_subprocess):
         """Test general exception handling."""
         # Mock general exception
-        mock_subprocess.side_effect = Exception("General error")
+        mock_subprocess.side_effect = OSError("General error")
 
         cmd_signature = ("tool", ("arg",))
         file_list = ["file.txt"]
@@ -126,6 +127,7 @@ class TestExecuteBatchedCommand(unittest.TestCase):
             capture_output=True,
             text=True,
             env=os.environ,
+            check=False,
         )
 
     @patch("subprocess.run")
@@ -146,7 +148,11 @@ class TestExecuteBatchedCommand(unittest.TestCase):
 
         # Should call without file arguments
         mock_subprocess.assert_called_once_with(
-            ["just", "--fmt", "--check"], capture_output=True, text=True, env=os.environ
+            ["just", "--fmt", "--check"],
+            capture_output=True,
+            text=True,
+            env=os.environ,
+            check=False,
         )
 
     @patch("subprocess.run")
@@ -171,6 +177,7 @@ class TestExecuteBatchedCommand(unittest.TestCase):
             capture_output=True,
             text=True,
             env=os.environ,
+            check=False,
         )
 
     @patch("builtins.print")
@@ -235,7 +242,11 @@ class TestExecuteBatchedCommand(unittest.TestCase):
         expected_env["RUST_LOG"] = "warn"
 
         mock_subprocess.assert_called_once_with(
-            ["taplo", "format", "config.toml"], capture_output=True, text=True, env=expected_env
+            ["taplo", "format", "config.toml"],
+            capture_output=True,
+            text=True,
+            env=expected_env,
+            check=False,
         )
 
 

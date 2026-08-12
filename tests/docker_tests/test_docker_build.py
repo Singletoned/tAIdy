@@ -10,7 +10,6 @@ from pathlib import Path
 from taidy.cli import ADAPTER_MANIFEST
 from tests.docker_tests.base import PROJECT_ROOT
 
-
 IMAGE_TAG = "taidy:test-build"
 
 
@@ -26,6 +25,7 @@ class TestDockerBuild(unittest.TestCase):
             capture_output=True,
             text=True,
             timeout=600,
+            check=False,
         )
         if result.returncode:
             raise RuntimeError(f"Docker build failed:\n{result.stderr}")
@@ -37,6 +37,7 @@ class TestDockerBuild(unittest.TestCase):
             capture_output=True,
             text=True,
             timeout=30,
+            check=False,
         )
 
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -63,6 +64,7 @@ class TestDockerBuild(unittest.TestCase):
                         capture_output=True,
                         text=True,
                         timeout=30,
+                        check=False,
                     )
                     self.assertEqual(
                         result.returncode,
@@ -92,6 +94,7 @@ class TestDockerBuild(unittest.TestCase):
                 capture_output=True,
                 text=True,
                 timeout=30,
+                check=False,
             )
 
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -123,6 +126,7 @@ class TestDockerBuild(unittest.TestCase):
                 capture_output=True,
                 text=True,
                 timeout=30,
+                check=False,
             )
             contents_after_run = source_path.read_text()
 
