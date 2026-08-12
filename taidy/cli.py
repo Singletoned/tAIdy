@@ -1370,7 +1370,17 @@ def process_files(files: list[str], mode: Mode, dry_run: bool = False) -> Proces
         if ext in [".yml", ".yaml"] and ".github/workflows" in str(file_path):
             mapped_ext = ".github-workflow"
 
-        # Check if we have configuration for this extension based on mode
+        # Security-only files have a valid lint adapter when a single directory
+        # is scanned, even though they have no formatter adapter.
+        use_security_adapter = (
+            mode in [Mode.LINT, Mode.BOTH]
+            and is_command_available("trufflehog")
+            and len(input_directories) == 1
+            and len(files) == 1
+            and (ext in SECURITY_EXTENSIONS or file_path.name.startswith(".env"))
+        )
+
+        # Check if we have configuration for this extension based on mode.
         has_config = False
         if mode == Mode.LINT:
             has_config = mapped_ext in LINTER_MAP
@@ -1383,7 +1393,7 @@ def process_files(files: list[str], mode: Mode, dry_run: bool = False) -> Proces
             if mapped_ext not in file_groups:
                 file_groups[mapped_ext] = []
             file_groups[mapped_ext].append(file)
-        else:
+        elif not use_security_adapter:
             not_checked.append(f"{file}: no adapter for {mode.value}")
             # Only warn once per extension, and skip known unformattable types
             if ext not in warned_extensions and ext not in ALWAYS_UNFORMATTABLE_EXTENSIONS:
@@ -1393,14 +1403,7 @@ def process_files(files: list[str], mode: Mode, dry_run: bool = False) -> Proces
                 )
                 warned_extensions.add(ext)
 
-        # Add to security scanning group if trufflehog is available, we're linting,
-        # and we're scanning a single directory (not individual files)
-        if (
-            mode in [Mode.LINT, Mode.BOTH]
-            and is_command_available("trufflehog")
-            and len(input_directories) == 1
-            and len(files) == 1
-        ) and (ext in SECURITY_EXTENSIONS or file_path.name.startswith(".env")):
+        if use_security_adapter:
             if ".security" not in file_groups:
                 file_groups[".security"] = []
             file_groups[".security"].append(file)

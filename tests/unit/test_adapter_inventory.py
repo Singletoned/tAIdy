@@ -173,7 +173,7 @@ class TestAdapterInventory(unittest.TestCase):
         )
 
     @patch("taidy.cli.execute_batched_command", return_value=0)
-    @patch("taidy.cli.discover_files_in_directory", return_value=[".env"])
+    @patch("taidy.cli.discover_files_in_directory", return_value=[".env", "schema.sql"])
     @patch("taidy.cli.os.path.isdir", return_value=True)
     @patch("taidy.cli.os.path.exists", return_value=True)
     @patch("taidy.cli.is_command_available", side_effect=lambda command: command == "trufflehog")
@@ -181,11 +181,13 @@ class TestAdapterInventory(unittest.TestCase):
     def test_security_selector_dispatches_for_a_single_directory(
         self, mock_logger, mock_available, mock_exists, mock_isdir, mock_discover, mock_execute
     ):
-        del mock_logger, mock_available, mock_exists, mock_isdir, mock_discover
+        del mock_available, mock_exists, mock_isdir, mock_discover
         result = process_files(["fixture-directory"], Mode.LINT)
 
         self.assertEqual(result.exit_code, 0)
         self.assertEqual(result.tools_used, ["trufflehog"])
+        self.assertEqual(result.not_checked, [])
+        mock_logger.warning.assert_not_called()
         self.assertTrue(mock_execute.called)
 
     def test_manifest_covers_command_maps_and_drives_adapter_policy(self):
