@@ -265,18 +265,19 @@ class TestFileSystemOperationsIntegration(unittest.TestCase):
         (self.test_dir / "real_dir" / "inside.py").touch()
 
         symlink_dir = self.test_dir / "symlink_dir"
+        broken_symlink = self.test_dir / "broken.py"
         try:
             os.symlink(self.test_dir / "real_dir", symlink_dir)
+            os.symlink(self.test_dir / "missing.py", broken_symlink)
         except OSError:
-            symlink_dir = None
+            self.skipTest("Cannot create symlinks on this system")
 
         os.chdir(self.test_dir)
         discovered_files = discover_files_in_directory(".")
 
-        # Should handle symlinks appropriately
-        # Exact behavior may vary, but should not crash
-        self.assertIsInstance(discovered_files, list)
-        self.assertGreater(len(discovered_files), 0)
+        # Do not pass links to tools: their targets can be outside the requested
+        # directory, and directory links can introduce cycles or duplicate files.
+        self.assertEqual(discovered_files, ["real_dir/inside.py", "regular.py"])
 
     def test_discover_files_permission_handling(self):
         """Test file discovery with permission restrictions."""

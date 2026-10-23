@@ -361,6 +361,23 @@ class TestProcessFilesOrchestration(unittest.TestCase):
         self.assertEqual(result.exit_code, 0)
         mock_execute.assert_called_once_with(("ruff", ("format", "--quiet")), ["src/app.py"])
 
+    @patch("taidy.cli.execute_batched_command")
+    @patch("taidy.cli.is_command_available", return_value=True)
+    @patch("taidy.cli.os.path.isdir", return_value=False)
+    @patch("taidy.cli.os.path.exists", return_value=True)
+    @patch("taidy.cli.os.path.islink", return_value=True)
+    def test_symbolic_link_input_is_skipped(
+        self, mock_islink, mock_exists, mock_isdir, mock_available, mock_execute
+    ):
+        """A symlink input must not cause Taidy to edit or lint its target."""
+        del mock_islink, mock_exists, mock_isdir, mock_available
+
+        result = process_files(["linked.py"], Mode.BOTH)
+
+        self.assertEqual(result.files_processed, 0)
+        self.assertEqual(result.not_checked, [])
+        mock_execute.assert_not_called()
+
     @patch("taidy.cli.os.path.isdir", return_value=False)
     @patch("taidy.cli.os.path.exists", return_value=True)
     def test_unknown_file_is_not_checked_without_failure(self, mock_exists, mock_isdir):

@@ -707,6 +707,12 @@ def discover_files_in_directory(directory_path: str) -> list[str]:
             git_ignored_files = get_git_ignored_files(git_root)
 
     for file_path in directory.rglob("*"):
+        # Do not follow links: a target can be outside the requested directory,
+        # and directory links can introduce cycles or duplicate files.
+        if file_path.is_symlink():
+            logger.debug(f"Skipping symbolic link during discovery: {file_path}")
+            continue
+
         # Skip if it's not a file
         if not file_path.is_file():
             continue
@@ -1339,12 +1345,20 @@ def process_files(files: list[str], mode: Mode, dry_run: bool = False) -> Proces
     errors: list[str] = []
     not_checked: list[str] = []
 
-    # Track which inputs were directories for potential direct passing to formatters
-    input_directories = [f for f in files if os.path.isdir(f) and os.path.exists(f)]
+    # Track actual directory inputs for the security scanner.
+    input_directories = [
+        file
+        for file in files
+        if not os.path.islink(file) and os.path.isdir(file) and os.path.exists(file)
+    ]
 
     # Expand directories to files
     expanded_files = []
     for file_or_dir in files:
+        if os.path.islink(file_or_dir):
+            logger.warning(f"Path {file_or_dir} is a symbolic link, skipping")
+            continue
+
         if not os.path.exists(file_or_dir):
             logger.warning(f"Path {file_or_dir} does not exist, skipping")
             continue
