@@ -1,46 +1,42 @@
 ---
-id: TASK-1.7
 title: Retire unsafe bootstrap and refresh setup documentation
-status: To Do
-assignee: []
-created_date: "2026-08-04 11:41"
-updated_date: "2026-08-06 07:27"
+status: todo
 labels:
   - agent-first
   - setup
-dependencies:
-  - TASK-1.6
-references:
-  - PROJECT.md
-  - RELEASE_READINESS_PLAN.md
-parent_task_id: TASK-1
 priority: high
-ordinal: 8000
+depends_on:
+  - TASK-7
+parent: TASK-1
+created: 2026-08-04
 ---
 
 ## Description
 
-<!-- SECTION:DESCRIPTION:BEGIN -->
-
 Migrate bootstrap users to setup, remove downloaded-script execution from the supported path, and update concise CLI/README guidance.
 
-<!-- SECTION:DESCRIPTION:END -->
+### References
+
+- PROJECT.md
+- RELEASE_READINESS_PLAN.md
 
 ## Acceptance Criteria
 
-<!-- AC:BEGIN -->
+- [ ] Bootstrap no longer executes downloaded remote scripts.
+- [ ] Help and README explain normal-run fallback, setup targets, and incomplete-coverage summaries.
+- [ ] Migration behavior and any breaking removal are documented.
 
-- [ ] #1 Bootstrap no longer executes downloaded remote scripts.
-- [ ] #2 Help and README explain normal-run fallback, setup targets, and incomplete-coverage summaries.
-- [ ] #3 Migration behavior and any breaking removal are documented.
-<!-- AC:END -->
-
-## Implementation Plan
-
-<!-- SECTION:PLAN:BEGIN -->
+## Plan
 
 1. Replace the bootstrap user path with a compatibility message directing users to taidy setup.
 2. Remove downloaded-script execution from the supported path; remove the command only in a documented breaking release.
 3. Update CLI help and README for normal-run PATH/transient behavior, setup targets, incomplete coverage, and migration.
 4. Verify documentation is consistent with the catalogue and configuration contract.
-<!-- SECTION:PLAN:END -->
+
+## Notes
+
+Backlog.md ID: TASK-1.7
+
+## History
+
+- 2026-08-04 → todo

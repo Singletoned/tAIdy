@@ -1,45 +1,41 @@
 ---
-id: TASK-1.6
 title: Provision reviewed Python and Bun tool providers
-status: To Do
-assignee: []
-created_date: "2026-08-04 11:41"
-updated_date: "2026-08-06 07:27"
+status: todo
 labels:
   - agent-first
   - setup
-dependencies:
-  - TASK-1.5
-references:
-  - PROJECT.md
-parent_task_id: TASK-1
 priority: high
-ordinal: 7000
+depends_on:
+  - TASK-6
+parent: TASK-1
+created: 2026-08-04
 ---
 
 ## Description
 
-<!-- SECTION:DESCRIPTION:BEGIN -->
-
 Use declared package/provider data to provision reviewed Python and JS/TS/web-document adapters after explicit setup approval. Report native or deferred adapters without guessing installers.
 
-<!-- SECTION:DESCRIPTION:END -->
+### References
+
+- PROJECT.md
 
 ## Acceptance Criteria
 
-<!-- AC:BEGIN -->
+- [ ] Providers use declared package identities and exact tested commands.
+- [ ] Provider tests prove no shell-piped installer and no global installation without explicit target approval.
+- [ ] Deferred/native adapters are reported clearly and are not installed speculatively.
 
-- [ ] #1 Providers use declared package identities and exact tested commands.
-- [ ] #2 Provider tests prove no shell-piped installer and no global installation without explicit target approval.
-- [ ] #3 Deferred/native adapters are reported clearly and are not installed speculatively.
-<!-- AC:END -->
-
-## Implementation Plan
-
-<!-- SECTION:PLAN:BEGIN -->
+## Plan
 
 1. Implement only reviewed Python and JS/TS/web-document setup providers from declared catalogue package data.
 2. Invoke uv/uvx and Bun/Bunx using exact tested commands after explicit target approval.
 3. Report native/deferred adapters instead of guessing installers.
 4. Mock provider invocations and assert no shell-piped installer and no unapproved global install.
-<!-- SECTION:PLAN:END -->
+
+## Notes
+
+Backlog.md ID: TASK-1.6
+
+## History
+
+- 2026-08-04 → todo

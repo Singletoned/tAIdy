@@ -1,0 +1,14 @@
+format = 1
+default_context = "tasks"
+project = "taidy"
+chitty_version = "0.1.1"
+autocommit = false
+review = true
+# autoformat = "taidy format" # run on every written task file
+archive = "move" # or "delete"; retain completed files or delete them
+
+[contexts.tasks]
+prefix = "TASK"
+
+[contexts.human]
+prefix = "HUMAN"
