@@ -10,12 +10,12 @@ created: 2026-08-04
 
 ## Description
 
-Deliver the first two phases of IMPLEMENTATION_PLAN.md: preserve existing adapter coverage through one catalogue, make normal-run outcomes explicit, and replace implicit bootstrap behavior with explicit setup.
+Deliver the agent-first foundation from `PROJECT.md`: preserve existing adapter coverage through one catalogue, make normal-run outcomes explicit, and give users a safe, explicit way to provision missing tools.
 
 ### References
 
-- PROJECT.md
-- RELEASE_READINESS_PLAN.md
+- `PROJECT.md`
+- `RELEASE_READINESS_PLAN.md`
 
 ## Acceptance Criteria
 
@@ -49,6 +49,8 @@ After these subtasks: expand reviewed native setup providers, derive/pin Docker 
 ## Notes
 
 Backlog.md ID: TASK-1
+
+2026-10-29 review: removed the dead `IMPLEMENTATION_PLAN.md` reference (moved into Backlog.md in `56e862f`). The Plan's "three Docker tests fail" risk is stale; `d185645` fixed it. Setup-related children (`TASK-5`..`TASK-8`) are in backlog pending the bootstrap-vs-setup decision.
 
 ## History
 

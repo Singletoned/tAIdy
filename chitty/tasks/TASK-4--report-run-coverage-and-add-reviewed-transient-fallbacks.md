@@ -26,6 +26,7 @@ Use the catalogue to distinguish processed, finding, failed, unsupported, and un
 - [ ] Unavailable recognized files exit zero; tool findings and infrastructure failures retain non-zero exits.
 - [ ] PATH remains preferred over declared transient runners.
 - [ ] Affected Docker tests verify outcomes rather than incidental log text.
+- [ ] Catalogue declares each candidate's runner (PATH, `uvx`, `bunx`), moved from `TASK-3`.
 
 ## Plan
 
@@ -38,6 +39,8 @@ Use the catalogue to distinguish processed, finding, failed, unsupported, and un
 ## Notes
 
 Backlog.md ID: TASK-1.3
+
+2026-10-29 review: `not_checked` with exit zero already exists, so criterion 2 is partly met. Criterion 1's `taidy setup` hint depends on the unresolved bootstrap-vs-setup decision (see `TASK-8`). Consider splitting the coverage summary from the transient-fallback work before starting.
 
 ## History
 

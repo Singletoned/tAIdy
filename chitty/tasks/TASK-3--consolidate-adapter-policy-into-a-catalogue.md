@@ -1,6 +1,6 @@
 ---
 title: Consolidate adapter policy into a catalogue
-status: doing
+status: review
 labels:
   - agent-first
   - setup
@@ -21,8 +21,8 @@ Replace duplicated adapter metadata with one typed catalogue that drives command
 
 ## Acceptance Criteria
 
-- [ ] Existing command maps, discovery selectors, and suggestions derive from one catalogue.
-- [ ] No current adapter or priority changes without an explicit documented decision.
+- [x] Existing command maps, discovery selectors, and suggestions derive from one catalogue.
+- [x] No current adapter or priority changes without an explicit documented decision.
 - [ ] Catalogue declares operation, selector, runner, directory behavior, Docker status, and setup-provider status.
 
 ## Plan
@@ -38,6 +38,9 @@ TASK-2 characterization is complete; beginning catalogue extraction from the ver
 
 Backlog.md ID: TASK-1.2
 
+Catalogue landed in `ee13869` (`ADAPTER_MANIFEST`/`ADAPTER_CATALOGUE`) and `71f5dbd`; suggestions derive from it and `tests/unit/test_adapter_inventory.py` guards selectors and order. Criterion 3 is met apart from per-candidate runner metadata (PATH/uvx/bunx) and a real setup-provider status (`setup_status` is derived as `suggestion-only`); runner metadata moved to `TASK-4`, setup status waits on the bootstrap/setup decision.
+
 ## History
 
 - 2026-08-04 → doing
+- 2026-10-29 doing → review

@@ -1,6 +1,6 @@
 ---
 title: Retire unsafe bootstrap and refresh setup documentation
-status: todo
+status: backlog
 labels:
   - agent-first
   - setup
@@ -37,6 +37,9 @@ Migrate bootstrap users to setup, remove downloaded-script execution from the su
 
 Backlog.md ID: TASK-1.7
 
+2026-10-29 review: moved to backlog. Direction is unresolved: `RELEASE_READINESS_PLAN.md` step 1 keeps `bootstrap` with pinned, verified downloads, while `PROJECT.md` and this chain replace it with `taidy setup` and INI config (config support was removed in `87a0ea5`). Decide the direction, then rewrite as smaller tickets.
+
 ## History
 
 - 2026-08-04 → todo
+- 2026-10-29 todo → backlog
