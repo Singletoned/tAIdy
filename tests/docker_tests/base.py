@@ -134,29 +134,45 @@ def build_environment(name: str) -> str:
     return tag
 
 
-def run_taidy(image_tag: str, command: str, sample_files: list[str] | None = None) -> tuple:
+def run_taidy(
+    image_tag: str,
+    command: str,
+    sample_files: list[str] | None = None,
+    working_directory: Path | None = None,
+) -> tuple:
     """Run a taidy command inside a container.
 
     Args:
         image_tag: Docker image tag to use.
         command: The taidy command string (e.g. "lint poorly_formatted.py").
         sample_files: List of filenames from tests/sample_files/ to copy in.
+        working_directory: Existing directory to mount at `/tmp/workdir`.
 
     Returns:
         (exit_code, stdout, stderr) tuple.
     """
+    if sample_files is not None and working_directory is not None:
+        raise ValueError("sample_files and working_directory are mutually exclusive")
+
     # Build the docker run command
     docker_cmd = ["docker", "run", "--rm"]
 
-    # Copy sample files into container via volume mount of a temp dir
+    # Copy sample files into container via volume mount of a temporary directory.
     tmp_dir = None
-    if sample_files:
+    if working_directory is not None:
+        mount_directory = working_directory
+    elif sample_files:
         tmp_dir = tempfile.mkdtemp(prefix="taidy-test-files-")
+        mount_directory = Path(tmp_dir)
         for filename in sample_files:
             src = SAMPLE_FILES / filename
             if src.exists():
-                shutil.copy2(src, os.path.join(tmp_dir, filename))
-        docker_cmd.extend(["-v", f"{tmp_dir}:/tmp/workdir"])
+                shutil.copy2(src, mount_directory / filename)
+    else:
+        mount_directory = None
+
+    if mount_directory is not None:
+        docker_cmd.extend(["-v", f"{mount_directory}:/tmp/workdir"])
         docker_cmd.extend(["-w", "/tmp/workdir"])
 
     docker_cmd.append(image_tag)
@@ -183,10 +199,16 @@ class DockerTestCase(unittest.TestCase):
     Skips automatically if Docker is not available.
     """
 
-    def run_taidy(self, env_name: str, command: str, sample_files: list[str] | None = None):
+    def run_taidy(
+        self,
+        env_name: str,
+        command: str,
+        sample_files: list[str] | None = None,
+        working_directory: Path | None = None,
+    ):
         """Build environment and run taidy, returning (exit_code, stdout, stderr)."""
         tag = build_environment(env_name)
-        return run_taidy(tag, command, sample_files)
+        return run_taidy(tag, command, sample_files, working_directory)
 
     def assertOutputContains(self, output: str, text: str, msg: str | None = None):
         """Assert that combined output contains the given text."""

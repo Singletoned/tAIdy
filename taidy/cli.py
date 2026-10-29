@@ -19,6 +19,7 @@ from typing import Any, Callable, Tuple
 from taidy import __version__ as VERSION
 
 CommandSignature = Tuple[str, Tuple[str, ...]]
+MAX_FORMAT_PASSES = 3
 
 # Help text constants
 USAGE_TEXT = """
@@ -1339,6 +1340,59 @@ def _execute_command_phase(
     return exit_code, errors
 
 
+def _snapshot_file_contents(command_batches: dict[CommandSignature, list[str]]) -> dict[str, bytes]:
+    """Return the current contents of every file passed to a formatter."""
+    return {
+        file: Path(file).read_bytes()
+        for file_list in command_batches.values()
+        for file in file_list
+    }
+
+
+def _changed_format_batches(
+    command_batches: dict[CommandSignature, list[str]],
+    before_contents: dict[str, bytes],
+) -> dict[CommandSignature, list[str]]:
+    """Return formatter batches containing only files changed since the snapshot."""
+    changed_files = {
+        file for file, contents in before_contents.items() if Path(file).read_bytes() != contents
+    }
+    return {
+        cmd_signature: [file for file in file_list if file in changed_files]
+        for cmd_signature, file_list in command_batches.items()
+        if any(file in changed_files for file in file_list)
+    }
+
+
+def _execute_format_phase(
+    command_batches: dict[CommandSignature, list[str]],
+) -> tuple[int, list[str]]:
+    """Run formatters until their output stops changing, within a fixed bound."""
+    current_batches = command_batches
+    for pass_number in range(1, MAX_FORMAT_PASSES + 1):
+        before_contents = _snapshot_file_contents(current_batches)
+        exit_code, errors = _execute_command_phase(current_batches, "format")
+        if exit_code != 0:
+            return exit_code, errors
+
+        current_batches = _changed_format_batches(current_batches, before_contents)
+        if not current_batches:
+            return 0, []
+
+        if pass_number == MAX_FORMAT_PASSES:
+            unstable_files = sorted(
+                file for file_list in current_batches.values() for file in file_list
+            )
+            error = (
+                f"Formatters did not stabilise after {MAX_FORMAT_PASSES} passes: "
+                f"{', '.join(unstable_files)}"
+            )
+            logger.error(error)
+            return 1, [error]
+
+    raise AssertionError("format stabilization loop exceeded its pass bound")
+
+
 def process_files(files: list[str], mode: Mode, dry_run: bool = False) -> ProcessingResult:
     """Process files according to the specified mode"""
     tools_used: list[str] = []
@@ -1520,14 +1574,12 @@ def process_files(files: list[str], mode: Mode, dry_run: bool = False) -> Proces
             not_checked=not_checked,
         )
 
-    exit_code = 0
-    for phase_name, batches in [("format", format_batches), ("lint", lint_batches)]:
-        phase_exit_code, phase_errors = _execute_command_phase(batches, phase_name)
-        if phase_exit_code != 0:
-            exit_code = phase_exit_code
-        errors.extend(phase_errors)
-        if phase_exit_code != 0:
-            break
+    exit_code, format_errors = _execute_format_phase(format_batches)
+    errors.extend(format_errors)
+    if exit_code == 0:
+        lint_exit_code, lint_errors = _execute_command_phase(lint_batches, "lint")
+        exit_code = lint_exit_code
+        errors.extend(lint_errors)
 
     return ProcessingResult(
         files_processed=files_processed,

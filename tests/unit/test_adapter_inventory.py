@@ -133,6 +133,7 @@ class TestAdapterInventory(unittest.TestCase):
                 commands = FORMATTER_MAP.get(selector, [])
                 self.assertEqual(self.command_names(commands), inventory.formatters)
 
+    @patch("taidy.cli.Path.read_bytes", new=lambda _: b"")
     @patch("taidy.cli.execute_batched_command", return_value=0)
     @patch("taidy.cli.os.path.isdir", return_value=False)
     @patch("taidy.cli.os.path.exists", return_value=True)

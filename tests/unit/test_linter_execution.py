@@ -3,6 +3,7 @@
 import logging
 import os
 import sys
+import tempfile
 import unittest
 from pathlib import Path
 from unittest.mock import MagicMock, patch
@@ -291,6 +292,7 @@ class TestTrufflehogCommand(unittest.TestCase):
 class TestProcessFilesOrchestration(unittest.TestCase):
     """Test process-level command scheduling."""
 
+    @patch("taidy.cli.Path.read_bytes", new=lambda _: b"")
     @patch("taidy.cli.is_command_available", return_value=True)
     @patch("taidy.cli.os.path.isdir", return_value=False)
     @patch("taidy.cli.os.path.exists", return_value=True)
@@ -313,6 +315,7 @@ class TestProcessFilesOrchestration(unittest.TestCase):
         self.assertEqual(calls[0], ("ruff", ("format", "--quiet")))
         self.assertEqual(calls[1], ("ruff", ("check", "--quiet")))
 
+    @patch("taidy.cli.Path.read_bytes", new=lambda _: b"")
     @patch("taidy.cli.is_command_available", return_value=True)
     @patch("taidy.cli.os.path.isdir", return_value=False)
     @patch("taidy.cli.os.path.exists", return_value=True)
@@ -329,6 +332,7 @@ class TestProcessFilesOrchestration(unittest.TestCase):
         self.assertEqual(result.errors, [])
         self.assertEqual(mock_execute.call_count, 2)
 
+    @patch("taidy.cli.Path.read_bytes", new=lambda _: b"")
     @patch("taidy.cli.is_command_available", return_value=True)
     @patch("taidy.cli.os.path.isdir", return_value=False)
     @patch("taidy.cli.os.path.exists", return_value=True)
@@ -345,6 +349,69 @@ class TestProcessFilesOrchestration(unittest.TestCase):
         self.assertEqual(result.errors, ["ruff failed with exit code 1"])
         self.assertEqual(mock_execute.call_count, 2)
 
+    @patch("taidy.cli.is_command_available", return_value=True)
+    @patch("taidy.cli.execute_batched_command")
+    def test_formatting_retries_changed_files_until_stable(self, mock_execute, mock_available):
+        """Formatters rerun files changed by a successful formatting pass."""
+        del mock_available
+        with tempfile.TemporaryDirectory() as directory:
+            html_file = Path(directory) / "inline_style.html"
+            html_file.write_text(
+                '<!DOCTYPE html><html><body><div style="display:grid;'
+                "grid-template-columns:minmax(0,1.5fr) minmax(0,1.2fr) "
+                'minmax(0,0.9fr) 60px;gap:12px;padding:0 0 6px;font-size:13px">'
+                "<span>Performer</span></div></body></html>"
+            )
+            stable_file = Path(directory) / "stable.html"
+            stable_file.write_text("<p>unchanged</p>\n")
+            calls = []
+
+            def mutate_then_stabilize(cmd_signature, file_list):
+                calls.append((cmd_signature, file_list))
+                if len(calls) == 1:
+                    html_file.write_text("first pass\n")
+                elif len(calls) == 2:
+                    html_file.write_text("second pass\n")
+                return 0
+
+            mock_execute.side_effect = mutate_then_stabilize
+
+            result = process_files([str(html_file), str(stable_file)], Mode.FORMAT)
+
+        self.assertEqual(result.exit_code, 0)
+        self.assertEqual(
+            [file_list for _cmd_signature, file_list in calls],
+            [[str(html_file), str(stable_file)], [str(html_file)], [str(html_file)]],
+        )
+
+    @patch("taidy.cli.MAX_FORMAT_PASSES", 2)
+    @patch("taidy.cli.logger")
+    @patch("taidy.cli.is_command_available", return_value=True)
+    @patch("taidy.cli.execute_batched_command")
+    def test_formatting_fails_when_files_do_not_stabilize(
+        self, mock_execute, mock_available, mock_logger
+    ):
+        """An endlessly changing file is reported as an infrastructure failure."""
+        del mock_available
+        with tempfile.TemporaryDirectory() as directory:
+            html_file = Path(directory) / "inline_style.html"
+            html_file.write_text("original\n")
+
+            def always_mutate(cmd_signature, file_list):
+                html_file.write_text(html_file.read_text() + "changed\n")
+                return 0
+
+            mock_execute.side_effect = always_mutate
+
+            result = process_files([str(html_file)], Mode.FORMAT)
+
+        self.assertEqual(result.exit_code, 1)
+        self.assertEqual(mock_execute.call_count, 2)
+        self.assertEqual(len(result.errors), 1)
+        self.assertIn(str(html_file), result.errors[0])
+        mock_logger.error.assert_called_once_with(result.errors[0])
+
+    @patch("taidy.cli.Path.read_bytes", new=lambda _: b"")
     @patch("taidy.cli.discover_files_in_directory", return_value=["src/app.py"])
     @patch("taidy.cli.is_command_available", return_value=True)
     @patch("taidy.cli.os.path.isdir", return_value=True)

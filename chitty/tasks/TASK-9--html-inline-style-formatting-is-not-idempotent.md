@@ -1,6 +1,6 @@
 ---
 title: HTML inline style formatting is not idempotent
-status: todo
+status: review
 created: 2026-10-29
 ---
 
@@ -19,16 +19,31 @@ Decision (2026-10-29): Taidy reruns formatters, bounded, until output stops chan
 
 ## Acceptance Criteria
 
-- [ ] A regression test using the repro above fails before the fix and passes after it.
-- [ ] The format phase reruns formatters on changed files until no file changes, up to a module-level maximum pass count.
-- [ ] Hitting the maximum is reported as an infrastructure failure naming the files that never stabilised, with a non-zero exit.
-- [ ] An idempotency test formats the sample-file fixtures twice and fails if the second pass changes anything.
+- [x] A regression test using the repro above fails before the fix and passes after it.
+- [x] The format phase reruns formatters on changed files until no file changes, up to a module-level maximum pass count.
+- [x] Hitting the maximum is reported as an infrastructure failure naming the files that never stabilised, with a non-zero exit.
+- [x] An idempotency test formats the sample-file fixtures twice and fails if the second pass changes anything.
+
+## Plan
+
+Add bounded format stabilization that reruns only files changed by successful formatter passes, while retaining existing command-failure handling. Add unit coverage for convergence and exhaustion, then add an HTML Prettier regression fixture and Docker idempotency coverage. Run format, unit tests, Docker tests, typecheck, and update acceptance criteria as verified.
 
 ## Notes
 
 Suggestion origin: circuitry
 
+Ready for independent review. Verified with uv run python -m unittest discover tests/unit -v
+Command output
+uv run python -m unittest discover tests/integration -v, uv run python -m unittest discover tests/docker_tests -v, and uv run python -m unittest discover tests/unit -v
+Command output
+uv run python -m unittest discover tests/integration -v
+taidy lint .
+ty check taidy/
+All checks passed!.
+
 ## History
 
 - 2026-10-29 → backlog
 - 2026-10-29 backlog → todo
+- 2026-10-29 todo → doing
+- 2026-10-29 doing → review
