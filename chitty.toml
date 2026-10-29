@@ -1,7 +1,7 @@
 format = 1
 default_context = "tasks"
 project = "taidy"
-chitty_version = "0.1.1"
+chitty_version = "0.1.4"
 autocommit = false
 review = true
 # autoformat = "taidy format" # run on every written task file
